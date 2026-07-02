@@ -24,7 +24,13 @@ CC_FILE = "cc.txt"
 BANNED_FILE = "banned_users.json"
 PROXY_FILE = "proxy.json"
 
-client = None
+from telethon import TelegramClient
+
+client = TelegramClient(
+    "cc_bot",
+    API_ID,
+    API_HASH
+)
 
 ACTIVE_MTXT_PROCESSES = {}
 TEMP_WORKING_SITES = {}  # Store working sites temporarily for /check command
@@ -2339,16 +2345,8 @@ async def unban_user_command(event):
 
 async def main():
     await initialize_files()
-    global client
-
-    client = TelegramClient(
-        "cc_bot",
-        API_ID,
-        API_HASH
-    )
-    print("𝘽𝙊𝙏 𝙍𝙐𝙉𝙉𝙄𝙉𝙂 💨")
-    await client.start(bot_token=BOT_TOKEN)
-    await client.run_until_disconnected()
+    
+    
     # Create a wrapper for get_cc_limit that can be used by external modules
     def get_cc_limit_wrapper(access_type, user_id=None):
         return get_cc_limit(access_type, user_id)
