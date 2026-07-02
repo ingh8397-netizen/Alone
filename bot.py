@@ -1,10 +1,22 @@
 from telethon import TelegramClient, events, Button
 from telethon.tl.types import KeyboardButtonCallback
-import requests, random, datetime, json, os, re, asyncio, time
+
+from flask import Flask
+import threading
+
+import requests
+import random
+import datetime
+import json
+import os
+import re
+import asyncio
+import time
 import string
 import hashlib
 import aiohttp
 import aiofiles
+
 from urllib.parse import urlparse
 from urllib.parse import quote
 
@@ -25,6 +37,19 @@ BANNED_FILE = "banned_users.json"
 PROXY_FILE = "proxy.json"
 
 client = TelegramClient('cc_bot', API_ID, API_HASH)
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot Running ✅"
+
+def run_web():
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
+
+threading.Thread(target=run_web, daemon=True).start()
 
 ACTIVE_MTXT_PROCESSES = {}
 TEMP_WORKING_SITES = {}  # Store working sites temporarily for /check command
