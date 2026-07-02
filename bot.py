@@ -8,6 +8,21 @@ import aiofiles
 from urllib.parse import urlparse
 from urllib.parse import quote
 
+from flask import Flask
+from threading import Thread
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot Running"
+
+def run_web():
+    import os
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
+Thread(target=run_web, daemon=True).start()
+
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
