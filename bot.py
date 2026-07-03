@@ -1959,8 +1959,8 @@ async def process_mtxt_cards(event, cards, local_sites):
         sites_tried = set()
 
         while attempts < max_attempts:
-        if user_id not in ACTIVE_MTXT_PROCESSES:
-            return
+            if user_id not in ACTIVE_MTXT_PROCESSES:
+                return
             attempts += 1
             available_sites = [s for s in local_sites if s not in sites_tried]
             if not available_sites:
