@@ -1009,8 +1009,13 @@ async def add_txt_sites(event):
 
         txt_sites = extract_urls_from_text(text)
 
-        if not txt_sites:
-            return await event.reply("❌ No valid sites found.")
+        if not sites_to_add:
+            try:
+                return await event.reply("❌ No valid urls/domains found!")
+            except FloodWaitError as e:
+                print(f"FloodWait: {e.seconds}s")
+                await asyncio.sleep(e.seconds)
+                return
 
         data = await load_json(SITE_FILE)
         user_sites = data.get(str(event.sender_id), [])
@@ -1037,8 +1042,14 @@ async def add_txt_sites(event):
             f"📊 Total Saved: {len(user_sites)}"
         )
 
+    except FloodWaitError as e:
+        print(f"FloodWait: {e.seconds}s")
+        await asyncio.sleep(e.seconds)
+
     except Exception as e:
-        await event.reply(f"❌ Error: {e}")
+        print(f"Error: {e}")
+        
+
         
 @client.on(events.NewMessage(pattern='/auth'))
 async def auth_user(event):
@@ -1077,8 +1088,12 @@ async def delete_all_sites(event):
             f"🗑 Deleted: {total} site(s)"
         )
 
+    except FloodWaitError as e:
+        print(f"FloodWait: {e.seconds}s")
+        await asyncio.sleep(e.seconds)
+
     except Exception as e:
-        await event.reply(f"❌ Error: {e}")
+        print(f"Error: {e}")
         
 @client.on(events.NewMessage(pattern='/key'))
 async def generate_keys(event):
@@ -1205,8 +1220,12 @@ async def add_proxy(event):
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
         await testing_msg.edit(f"✅ Added!\nTotal: {len(user_proxies)}/10")
+    except FloodWaitError as e:
+        print(f"FloodWait: {e.seconds}s")
+        await asyncio.sleep(e.seconds)
+
     except Exception as e:
-        await event.reply(f"❌ Error: {e}")
+        print(f"Error: {e}")
 @client.on(events.NewMessage(pattern=r'(?i)^[/.]setpr?oxy$'))
 async def set_proxy_bulk(event):
     if event.is_group:
@@ -1285,8 +1304,12 @@ async def set_proxy_bulk(event):
 ❌ Dead/Offline Skipped: {dead_count}
 📊 Final Total: {len(user_proxies)}/10""")
         
+    except FloodWaitError as e:
+        print(f"FloodWait: {e.seconds}s")
+        await asyncio.sleep(e.seconds)
+
     except Exception as e:
-        await event.reply(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 @client.on(events.NewMessage(pattern=r'/addsitetxt'))
 async def add_sites_bulk_txt(event):
@@ -1305,9 +1328,13 @@ async def add_sites_bulk_txt(event):
         os.remove(file_path)
         
         txt_sites = extract_urls_from_text(text)
-        if not txt_sites:
-            return await event.reply("❌ No valid sites found.")
-        
+        if not sites_to_add:
+            try:
+                return await event.reply("❌ No valid urls/domains found!")
+            except FloodWaitError as e:
+                print(f"FloodWait: {e.seconds}s")
+                await asyncio.sleep(e.seconds)
+                return        
         data = await load_json(SITE_FILE)
         user_sites = data.get(str(event.sender_id), [])
         added = 0
@@ -1319,8 +1346,12 @@ async def add_sites_bulk_txt(event):
         data[str(event.sender_id)] = user_sites
         await save_json(SITE_FILE, data)
         await event.reply(f"✅ Sites added successfully!\nAdded: {added}\nTotal sites: {len(user_sites)}")
+    except FloodWaitError as e:
+        print(f"FloodWait: {e.seconds}s")
+        await asyncio.sleep(e.seconds)
+
     except Exception as e:
-        await event.reply(f"❌ Error: {e}")
+        print(f"Error: {e}")
 # === NEW BULK COMMAND ===
 @client.on(events.NewMessage(pattern=r'(?i)^[/.]setprxy$'))
 async def set_proxy_bulk(event):
@@ -1392,8 +1423,12 @@ async def set_proxy_bulk(event):
         await save_json(PROXY_FILE, proxies)
         await loading.edit(f"🎉 Bulk Done!\nSuccessfully Added: {added}\nTotal: {len(user_proxies)}/10")
         
+    except FloodWaitError as e:
+        print(f"FloodWait: {e.seconds}s")
+        await asyncio.sleep(e.seconds)
+
     except Exception as e:
-        await event.reply(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 @client.on(events.NewMessage(pattern='/rmpxy'))
 async def remove_proxy(event):
