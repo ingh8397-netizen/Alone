@@ -2939,7 +2939,7 @@ async def main():
         'banned_user_message': banned_user_message,
         'access_denied_message_with_button': access_denied_message_with_button,
         'extract_card': extract_card,
-        'extract_all_cards': extract_all_cards,
+        'extract_all_cards': extract_card,
         'get_bin_info': get_bin_info,
         'save_approved_card': save_approved_card,
         'get_cc_limit': get_cc_limit_wrapper,
