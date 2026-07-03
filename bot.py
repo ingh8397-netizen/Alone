@@ -1009,7 +1009,7 @@ async def add_txt_sites(event):
 
         txt_sites = extract_urls_from_text(text)
 
-        if not sites_to_add:
+        if not txt_sites:
             try:
                 return await event.reply("❌ No valid urls/domains found!")
             except FloodWaitError as e:
@@ -1143,13 +1143,13 @@ async def add_site(event):
     try:
         add_text = event.raw_text[4:].strip()
         if not add_text: return await event.reply("𝙁𝙤𝙧𝙢𝙚𝙩: /add site.com site.com")
-        sites_to_add = extract_urls_from_text(add_text)
-        if not sites_to_add: return await event.reply("❌ 𝙉𝙤 𝙫𝙖𝙡𝙞𝙙 𝙪𝙧𝙡𝙨/𝙙𝙤𝙢𝙖𝙞𝙣𝙨 𝙛𝙤𝙪𝙣𝙙!")
+        txt_sites = extract_urls_from_text(add_text)
+        if not txt_sites: return await event.reply("❌ 𝙉𝙤 𝙫𝙖𝙡𝙞𝙙 𝙪𝙧𝙡𝙨/𝙙𝙤𝙢𝙖𝙞𝙣𝙨 𝙛𝙤𝙪𝙣𝙙!")
         sites = await load_json(SITE_FILE)
         user_sites = sites.get(str(event.sender_id), [])
         added_sites = []
         already_exists = []
-        for site in sites_to_add:
+        for site in txt_sites:
             if site in user_sites: already_exists.append(site)
             else:
                 user_sites.append(site)
@@ -1328,7 +1328,7 @@ async def add_sites_bulk_txt(event):
         os.remove(file_path)
         
         txt_sites = extract_urls_from_text(text)
-        if not sites_to_add:
+        if not txt_sites:
             try:
                 return await event.reply("❌ No valid urls/domains found!")
             except FloodWaitError as e:
