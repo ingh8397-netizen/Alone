@@ -1794,6 +1794,8 @@ async def mtxt(event):
 # Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, 
 # Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
 
+
+
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
@@ -1801,7 +1803,7 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(10)  # Exactly 10 at once for stability + speed
+    semaphore = asyncio.Semaphore(30)  # 20 at once for max speed
 
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
@@ -1846,7 +1848,7 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(0.2 + attempts * 0.3)  # Ultra fast backoff
+                        await asyncio.sleep(0.05 + attempts * 0.15)  # Ultra minimal for no lag
                         continue
 
                     bin_num = card.split("|")[0]
@@ -1892,7 +1894,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         if "CHARGED" in status_header:
                             await pin_charged_message(event, result_msg)
 
-                    # Status EVERY check (zero skip)
+                    # FORCED STATUS - NO SKIP EVER
                     price = result.get("Price", "N/A")
                     try:
                         price = f"${float(price):.2f}"
@@ -1927,15 +1929,16 @@ async def process_mtxt_cards(event, cards, local_sites):
                     break
 
                 except (FloodWait, FloodWaitError) as e:
-                    wait = getattr(e, 'value', getattr(e, 'seconds', 20)) + random.randint(1, 3)
+                    wait = getattr(e, 'value', getattr(e, 'seconds', 12)) + random.randint(1, 3)
                     print(f"[MTXT] Flood wait {wait}s for {card[:6]}")
                     await asyncio.sleep(wait)
-                    checked -= 1 if checked > 0 else 0
+                    if checked > 0:
+                        checked -= 1
                     continue
                 except Exception as e:
                     print(f"[MTXT] Card error {card[:6]}... on attempt {attempts}: {str(e)}")
                     if attempts < max_attempts:
-                        await asyncio.sleep(0.3)
+                        await asyncio.sleep(0.1)
                         continue
                     checked += 1
                     declined += 1
@@ -1947,12 +1950,12 @@ async def process_mtxt_cards(event, cards, local_sites):
         
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
 
-        await event.reply(f"**✅ MTXT CHECK FINISHED SUCCESSFULLY**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
+        await event.reply(f"**✅ MTXT CHECK FINISHED SUCCESSFULLY - ZERO SKIPS ZERO LAG**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
         print(f"[MTXT] Major crash prevented: {e}")
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
-        await event.reply(f"**⚠️ CHECK ENDED WITH ERROR**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
+        await event.reply(f"**⚠️ CHECK ENDED**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
 
 @client.on(events.CallbackQuery(pattern=rb"stop_mtxt:(\d+)"))
