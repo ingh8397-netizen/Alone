@@ -1885,7 +1885,17 @@ async def process_mtxt_cards(event, cards, local_sites):
     bin_cache = {}
     semaphore = asyncio.Semaphore(60)  # Higher speed
 
-    RETRY_TRIGGERS = [ ... same as before ... ]  # Keep your existing list
+    RETRY_TRIGGERS = [
+        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
+        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
+        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
+        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
+        "site requires login", "site not supported", "cart failed with status 503", "connection error",
+        "failed to get session token", "payment method not available", "invalid_payment_method",
+        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
+        "no valid payment method found", "processing_error", "Cart failed with status 422", 
+        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
+    ]
 
     async def check_single_card(card):
         nonlocal checked, approved, charged, declined
