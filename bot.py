@@ -2289,7 +2289,7 @@ async def process_ranfor_cards(event, cards, global_sites):
                     [Button.inline(f"✅ 𝗔𝗣𝗣𝗥𝗢𝗩𝗘𝗗 • {approved}", b"none")],
                     [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_ranfor:{user_id}".encode())]
                 ]
-                if checked % 50 == 0 or checked == total:
+                if checked % 25 == 0 or checked == total:
                     try:
                         await status_msg.edit(status_text, buttons=buttons)
                     except:
