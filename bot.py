@@ -1161,55 +1161,155 @@ async def remove_site(event):
 
 @client.on(events.NewMessage(pattern='/addpxy'))
 async def add_proxy(event):
-    # This command works in private only
     if event.is_group:
-        return await event.reply("🔒 𝙏𝙝𝙞𝙨 𝙘𝙤𝙢𝙢𝙖𝙣𝙙 𝙤𝙣𝙡𝙮 𝙬𝙤𝙧𝙠𝙨 𝙞𝙣 𝙥𝙧𝙞𝙫𝙖𝙩𝙚 𝙘𝙝𝙖𝙩 𝙩𝙤 𝙥𝙧𝙤𝙩𝙚𝙘𝙩 𝙮𝙤𝙪𝙧 𝙥𝙧𝙤𝙭𝙮!")
-    
+        return await event.reply("🔒 Private chat only!")
     if await is_banned_user(event.sender_id):
         return await event.reply(banned_user_message())
-    
     try:
         parts = event.raw_text.split(maxsplit=1)
         if len(parts) != 2:
-            return await event.reply("𝙁𝙤𝙧𝙢𝙖𝙩: /addpxy ip:port:username:password\n")
-        
+            return await event.reply("Format: `/addpxy ip:port:username:password`")
         proxy_str = parts[1].strip()
         proxy_data = parse_proxy_format(proxy_str)
-        
         if not proxy_data:
-            return await event.reply("❌ 𝙄𝙣𝙫𝙖𝙡𝙞𝙙 𝙥𝙧𝙤𝙭𝙮 𝙛𝙤𝙧𝙢𝙖𝙩!\n\n𝙐𝙨𝙚: ip:port:username:password\n")
-        
-        # Check current proxy count
+            return await event.reply("❌ Invalid proxy format!")
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
-        
         if len(user_proxies) >= 10:
-            return await event.reply("❌ 𝙋𝙧𝙤𝙭𝙮 𝙇𝙞𝙢𝙞𝙩 𝙍𝙚𝙖𝙘𝙝𝙚𝙙!\n\n𝙔𝙤𝙪 𝙘𝙖𝙣 𝙤𝙣𝙡𝙮 𝙖𝙙𝙙 𝙪𝙥 𝙩𝙤 10 𝙥𝙧𝙤𝙭𝙞𝙚𝙨.\n𝙐𝙨𝙚 /rmpxy 𝙩𝙤 𝙧𝙚𝙢𝙤𝙫𝙚 𝙤𝙡𝙙 𝙤𝙣𝙚𝙨.")
-        
-        # Check if proxy already exists
-        for existing_proxy in user_proxies:
-            if existing_proxy['proxy_url'] == proxy_data['proxy_url']:
-                return await event.reply("⚠️ 𝙏𝙝𝙞𝙨 𝙥𝙧𝙤𝙭𝙮 𝙞𝙨 𝙖𝙡𝙧𝙚𝙖𝙙𝙮 𝙖𝙙𝙙𝙚𝙙!")
-        
-        # Test the proxy
-        proxy_type_display = proxy_data.get('type', 'http').upper()
-        testing_msg = await event.reply(f"🔄 𝙏𝙚𝙨𝙩𝙞𝙣𝙜 {proxy_type_display} 𝙥𝙧𝙤𝙭𝙮...")
+            return await event.reply("❌ Limit 10 reached. Use /rmpxy")
+        for existing in user_proxies:
+            if existing['proxy_url'] == proxy_data['proxy_url']:
+                return await event.reply("⚠️ Already added!")
+        testing_msg = await event.reply("🔄 Testing...")
         is_working, result = await test_proxy(proxy_data['proxy_url'])
-        
         if not is_working:
-            await testing_msg.edit(f"❌ 𝙋𝙧𝙤𝙭𝙮 𝙞𝙨 𝙣𝙤𝙩 𝙬𝙤𝙧𝙠𝙞𝙣𝙜!\n\n𝙀𝙧𝙧𝙤𝙧: {result}")
+            await testing_msg.edit(f"❌ Dead: {result}")
             return
-        
-        # Add the proxy to the list
         user_proxies.append(proxy_data)
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        
-        auth_display = f"👤 {proxy_data['username']}" if proxy_data.get('username') else "🔓 No Auth"
-        await testing_msg.edit(f"✅ 𝙋𝙧𝙤𝙭𝙮 𝙖𝙙𝙙𝙚𝙙 𝙨𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮!\n\n🌐 𝙀𝙭𝙩𝙚𝙧𝙣𝙖𝙡 𝙄𝙋: {result}\n📍 𝙋𝙧𝙤𝙭𝙮: {proxy_data['ip']}:{proxy_data['port']}\n🔐 𝙏𝙮𝙥𝙚: {proxy_type_display}\n{auth_display}\n📊 𝙏𝙤𝙩𝙖𝙡 𝙋𝙧𝙤𝙭𝙞𝙚𝙨: {len(user_proxies)}/10")
-        
+        await testing_msg.edit(f"✅ Added!\nTotal: {len(user_proxies)}/10")
     except Exception as e:
-        await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
+        await event.reply(f"❌ Error: {e}")
+
+@client.on(events.NewMessage(pattern=r'(?i)^[/.]setprxy$'))
+async def set_proxy_bulk(event):
+    if event.is_group:
+        return await event.reply("🔒 Private only!")
+    if await is_banned_user(event.sender_id):
+        return await event.reply(banned_user_message())
+    if not event.reply_to_msg_id:
+        return await event.reply("Reply to proxies.txt file with /setprxy")
+    replied = await event.get_reply_message()
+    if not replied.document:
+        return await event.reply("Reply to .txt file!")
+    file_path = await replied.download_media()
+    try:
+        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+            content = await f.read()
+        os.remove(file_path)
+        proxy_lines = [line.strip() for line in content.splitlines() if line.strip()]
+        if not proxy_lines:
+            return await event.reply("No proxies in file.")
+        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies...")
+        added = 0
+        proxies = await load_json(PROXY_FILE)
+        user_proxies = proxies.get(str(event.sender_id), [])
+        for p_str in proxy_lines[:20]:
+            if len(user_proxies) >= 10: break
+            proxy_data = parse_proxy_format(p_str)
+            if not proxy_data: continue
+            if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies): continue
+            is_working, _ = await test_proxy(proxy_data['proxy_url'])
+            if is_working:
+                user_proxies.append(proxy_data)
+                added += 1
+        proxies[str(event.sender_id)] = user_proxies
+        await save_json(PROXY_FILE, proxies)
+        await loading.edit(f"✅ Bulk Done!\nAdded: {added}\nTotal: {len(user_proxies)}/10\nUse /proxy")
+    except Exception as e:
+        await event.reply(f"❌ Error: {e}")
+
+@client.on(events.NewMessage(pattern=r'/addsitetxt'))
+async def add_sites_bulk_txt(event):
+    can_access, access_type = await can_use(event.sender_id, event.chat)
+    if access_type == "banned":
+        return await event.reply(banned_user_message())
+    if not event.reply_to_msg_id:
+        return await event.reply("Reply to sites.txt with /addsitetxt")
+    reply = await event.get_reply_message()
+    if not reply.document:
+        return await event.reply("Reply to .txt file.")
+    try:
+        file_path = await reply.download_media()
+        async with aiofiles.open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            text = await f.read()
+        os.remove(file_path)
+        txt_sites = extract_urls_from_text(text)
+        if not txt_sites:
+            return await event.reply("No valid sites found.")
+        data = await load_json(SITE_FILE)
+        user_sites = data.get(str(event.sender_id), [])
+        added = 0
+        for site in txt_sites:
+            if site not in user_sites:
+                user_sites.append(site)
+                added += 1
+        data[str(event.sender_id)] = user_sites
+        await save_json(SITE_FILE, data)
+        await event.reply(f"✅ Sites added: {added}\nTotal: {len(user_sites)}")
+    except Exception as e:
+        await event.reply(f"❌ Error: {e}")
+# === NEW BULK COMMAND ===
+@client.on(events.NewMessage(pattern=r'(?i)^[/.]setprxy$'))
+async def set_proxy_bulk(event):
+    if event.is_group:
+        return await event.reply("🔒 Private chat only!")
+    if await is_banned_user(event.sender_id):
+        return await event.reply(banned_user_message())
+    
+    if not event.reply_to_msg_id:
+        return await event.reply("Reply to a .txt file (one proxy per line) with /setprxy")
+    
+    replied = await event.get_reply_message()
+    if not replied.document:
+        return await event.reply("Reply to a .txt file!")
+    
+    file_path = await replied.download_media()
+    try:
+        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:p pl
+            content = await f.read()
+        os.remove(file_path)
+        
+        proxy_lines = [line.strip() for line in content.splitlines() if line.strip()]
+        if not proxy_lines:
+            return await event.reply("No proxies found.")
+        
+        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies...")
+        
+        added = 0
+        proxies = await load_json(PROXY_FILE)
+        user_proxies = proxies.get(str(event.sender_id), [])
+        
+        for p_str in proxy_lines[:20]:
+            if len(user_proxies) >= 10:
+                break
+            proxy_data = parse_proxy_format(p_str)
+            if not proxy_data:
+                continue
+            if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies):
+                continue
+            is_working, _ = await test_proxy(proxy_data['proxy_url'])
+            if is_working:
+                user_proxies.append(proxy_data)
+                added += 1
+        
+        proxies[str(event.sender_id)] = user_proxies
+        await save_json(PROXY_FILE, proxies)
+        
+        await loading.edit(f"✅ Bulk proxies added!\nAdded: {added}\nTotal: {len(user_proxies)}/10\nUse /proxy to see.")
+    except Exception as e:
+        await event.reply(f"❌ Error: {e}")
 
 @client.on(events.NewMessage(pattern='/rmpxy'))
 async def remove_proxy(event):
