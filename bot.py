@@ -1794,8 +1794,11 @@ async def cutfile(event):
             end = min(start + lines_per_part, total_lines)
             if start >= total_lines:
                 break
-
-            part_lines = lines[start:end]
+            part_lines = []
+            for line in lines[start:end]:
+                card = extract_card(line)
+                if card:
+                    part_lines.append(card)
             part_name = f"part_{i+1}_of_{num_parts}_{replied.file.name}"
             part_path = f"/tmp/{part_name}"
 
