@@ -1277,7 +1277,7 @@ async def set_proxy_bulk(event):
     
     file_path = await replied.download_media()
     try:
-        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:p pl
+        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
             content = await f.read()
         os.remove(file_path)
         
