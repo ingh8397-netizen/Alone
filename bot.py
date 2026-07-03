@@ -1935,7 +1935,7 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎 (50k MAX)```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(60)  # Higher speed
+    semaphore = asyncio.Semaphore(80)  # Higher speed
 
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
@@ -1985,7 +1985,7 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(0.03 + attempts * 0.1)
+                        await asyncio.sleep(0.02)
                         continue
 
                     bin_num = card.split("|")[0]
@@ -2391,7 +2391,7 @@ async def process_ranfor_cards(event, cards, global_sites):
 
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(0.03 + attempts * 0.1)
+                        await asyncio.sleep(0.02)
                         continue
 
                     bin_num = card.split("|")[0]
