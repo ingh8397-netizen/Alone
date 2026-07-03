@@ -1649,6 +1649,8 @@ async def process_sh_card(event, access_type):
     site_index = 0
 
     while attempts < max_attempts:
+    if user_id not in ACTIVE_MTXT_PROCESSES:
+        return
         attempts += 1
         res, site_index = await check_card_random_site(card, user_sites, event.sender_id)
         response_lower = str(res.get("Response", "")).lower()
@@ -1957,6 +1959,8 @@ async def process_mtxt_cards(event, cards, local_sites):
         sites_tried = set()
 
         while attempts < max_attempts:
+        if user_id not in ACTIVE_MTXT_PROCESSES:
+            return
             attempts += 1
             available_sites = [s for s in local_sites if s not in sites_tried]
             if not available_sites:
@@ -1971,6 +1975,8 @@ async def process_mtxt_cards(event, cards, local_sites):
             async with semaphore:
                 try:
                     result = await check_card_specific_site(card, current_site, user_id)
+                    if user_id not in ACTIVE_MTXT_PROCESSES:
+    return
                     
                     checked += 1
                     response_text = str(result.get("Response", "")).lower()
@@ -2076,6 +2082,9 @@ async def process_mtxt_cards(event, cards, local_sites):
         tasks = [check_single_card(card) for card in cards]
         await asyncio.gather(*tasks, return_exceptions=True)
         
+        if user_id not in ACTIVE_MTXT_PROCESSES:
+            await event.reply("⛔ MTXT Stopped.")
+            return
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
         await event.reply(f"**✅ MTXT FINISHED - 50K SUPPORT**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
@@ -2373,7 +2382,8 @@ async def process_ranfor_cards(event, cards, global_sites):
             async with semaphore:
                 try:
                     result = await check_card_specific_site(card, current_site, user_id)
-                    
+                    if user_id not in ACTIVE_MTXT_PROCESSES:
+    return
                     checked += 1
                     response_text = str(result.get("Response", "")).lower()
 
@@ -2475,7 +2485,9 @@ async def process_ranfor_cards(event, cards, global_sites):
     try:
         tasks = [check_single_card(card) for card in cards]
         await asyncio.gather(*tasks, return_exceptions=True)
-        
+        if user_id not in ACTIVE_MTXT_PROCESSES:
+            await event.reply("⛔ MTXT Stopped.")
+            return        
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
         await event.reply(f"**✅ RAN CHECK FINISHED - 50K SUPPORT**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
