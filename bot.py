@@ -463,27 +463,39 @@ async def check_card_specific_site(card, site, user_id=None):
         "Gateway": "-",
     }
 
-
 def extract_card(text):
-    if not text: return None
+    if not text:
+        return None
+    
     text = str(text).strip()
-    # Handle your full format + normal
-    match = re.search(r'(\d{13,19})\|(\d{1,2})\|(\d{2,4})\|(\d{3,4})', text)
+    
+    # === MOST RELIABLE: First 4 parts after | ===
+    parts = re.findall(r'\d+', text)
+    if len(parts) >= 4:
+        cc = parts[0]
+        mm = parts[1].zfill(2)
+        yy = parts[2]
+        cvv = parts[3]
+        
+        if len(cc) >= 13 and len(cc) <= 19 and len(mm) == 2 and len(yy) >= 2 and len(cvv) in [3,4]:
+            if len(yy) == 4:
+                yy = yy[2:]
+            yy = yy.zfill(2)
+            cvv = cvv[:4]
+            return f"{cc}|{mm}|{yy}|{cvv}"
+    
+    # Regex fallback for standard format
+    match = re.search(r'(\d{13,19})\D*(\d{1,2})\D*(\d{2,4})\D*(\d{3,4})', text)
     if match:
         cc, mm, yy, cvv = match.groups()
-        if len(yy) == 4: yy = yy[2:]
+        if len(yy) == 4:
+            yy = yy[2:]
         mm = mm.zfill(2)
         yy = yy.zfill(2)
         cvv = cvv[:4]
         return f"{cc}|{mm}|{yy}|{cvv}"
+    
     return normalize_card(text)
-
-def extract_all_cards(text):
-    cards = set()
-    for line in text.splitlines():
-        card = extract_card(line)
-        if card: cards.add(card)
-    return list(cards)
     
 async def can_use(user_id, chat):
     # ✅ Admin always has full access everywhere
