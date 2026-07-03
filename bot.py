@@ -512,13 +512,16 @@ async def can_use(user_id, chat):
             return True, "group_free"
 
 def get_cc_limit(access_type, user_id=None):
-    # Check if user is admin first
+    # Admin ko unlimited
     if user_id and user_id in ADMIN_ID:
-        return 2000
+        return 50000  # 50k
+    
     if access_type in ["premium_private", "premium_group"]:
-        return 500
+        return 20000  # Premium ko 20k
+    
     elif access_type == "group_free":
-        return 50
+        return 500   # Free group wale ko 500
+    
     return 0
   # ← Top pe import me ye add kar (agar nahi hai to)
 
@@ -945,7 +948,7 @@ Here are the available command categories.
 `/ran` ⇾ Check CCs from `.txt` using random sites.
 `/deletesites` ⇾ Delete all saved sites.
 `/addtxtsites` ⇾ Import all sites from a replied `.txt` file.
-'/setprxy` ⇾ Import all proxy set from a replied `.txt` file.
+`/setprxy` ⇾ Import all proxy set from a replied `.txt` file.
 
 ** Stripe Auth **
 `/st` ⇾ Check a single CC.
@@ -1195,42 +1198,84 @@ async def add_proxy(event):
         await testing_msg.edit(f"✅ Added!\nTotal: {len(user_proxies)}/10")
     except Exception as e:
         await event.reply(f"❌ Error: {e}")
-
-@client.on(events.NewMessage(pattern=r'(?i)^[/.]setprxy$'))
+@client.on(events.NewMessage(pattern=r'(?i)^[/.]setpr?oxy$'))
 async def set_proxy_bulk(event):
     if event.is_group:
-        return await event.reply("🔒 Private only!")
+        return await event.reply("🔒 Private chat only!")
     if await is_banned_user(event.sender_id):
         return await event.reply(banned_user_message())
+    
     if not event.reply_to_msg_id:
-        return await event.reply("Reply to proxies.txt file with /setprxy")
+        return await event.reply("Reply to proxies.txt with /setproxy")
+    
     replied = await event.get_reply_message()
     if not replied.document:
         return await event.reply("Reply to .txt file!")
+    
     file_path = await replied.download_media()
     try:
         async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
             content = await f.read()
         os.remove(file_path)
+        
         proxy_lines = [line.strip() for line in content.splitlines() if line.strip()]
         if not proxy_lines:
-            return await event.reply("No proxies in file.")
-        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies...")
+            return await event.reply("No proxies found.")
+        
+        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies... (only working add honge)")
         added = 0
+        dead_count = 0
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
-        for p_str in proxy_lines[:20]:
-            if len(user_proxies) >= 10: break
+        
+        for idx, p_str in enumerate(proxy_lines[:30], 1):
+            if len(user_proxies) >= 10:
+                await event.reply("❌ Max 10 reached!")
+                break
+            
             proxy_data = parse_proxy_format(p_str)
-            if not proxy_data: continue
-            if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies): continue
-            is_working, _ = await test_proxy(proxy_data['proxy_url'])
-            if is_working:
-                user_proxies.append(proxy_data)
-                added += 1
+            if not proxy_data:
+                await event.reply(f"❌ Invalid format (line {idx})")
+                continue
+            
+            if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies):
+                await event.reply(f"⚠️ Already exists (line {idx})")
+                continue
+            
+            testing_msg = await event.reply(f"🔄 Testing line {idx} → {proxy_data['ip']}:{proxy_data['port']}")
+            is_working, result = await test_proxy(proxy_data['proxy_url'])
+            
+            if not is_working:
+                dead_count += 1
+                await testing_msg.edit(f"❌ Dead / Offline (line {idx})\n{proxy_data['ip']}:{proxy_data['port']}")
+                continue  # Dead ko add mat karo
+            
+            # Working proxy add
+            user_proxies.append(proxy_data)
+            added += 1
+            
+            proxy_type_display = proxy_data.get('type', 'http').upper()
+            auth_display = f"👤 {proxy_data.get('username', 'N/A')}" if proxy_data.get('username') else "🔓 No Auth"
+            
+            await testing_msg.edit(f"""✅ Proxy Added Successfully!
+
+🌐 External IP: {result}
+📍 Proxy: {proxy_data['ip']}:{proxy_data['port']}
+🔐 Type: {proxy_type_display}
+{auth_display}
+📊 Total Proxies: {len(user_proxies)}/10""")
+            
+            await asyncio.sleep(0.7)
+        
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        await loading.edit(f"✅ Bulk Done!\nAdded: {added}\nTotal: {len(user_proxies)}/10\nUse /proxy")
+        
+        await loading.edit(f"""🎉 Bulk Process Complete!
+
+✅ Working Added: {added}
+❌ Dead/Offline Skipped: {dead_count}
+📊 Final Total: {len(user_proxies)}/10""")
+        
     except Exception as e:
         await event.reply(f"❌ Error: {e}")
 
