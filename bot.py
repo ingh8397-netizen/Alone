@@ -23,7 +23,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8504591675:AAFj9sgq1U473fePD6ke3fU7fmdLtfNpjDA" # Replace with your Bot Token
+BOT_TOKEN = "8504591675:AAGO0B7OZe_p8aL21PYGBJPDSKBkYRZOAw8" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -694,13 +694,16 @@ def extract_urls_from_text(text):
     return list(clean_urls)
 
 def parse_proxy_format(proxy):
-    """Parse proxy in multiple formats with protocol support"""
+    """Parse proxy in multiple formats"""
     import re
     
     proxy = proxy.strip()
+    if not proxy:
+        return None
+    
     proxy_type = 'http'  # default
     
-    # Check if protocol is specified (socks5://, socks4://, http://, https://)
+    # Protocol support (socks/http)
     protocol_match = re.match(r'^(socks5|socks4|http|https)://(.+)$', proxy, re.IGNORECASE)
     if protocol_match:
         proxy_type = protocol_match.group(1).lower()
@@ -711,33 +714,33 @@ def parse_proxy_format(proxy):
     username = ''
     password = ''
     
-    # Format: username:password@host:port
-    match = re.match(r'^([^@:]+):([^@]+)@([^:@]+):(\d+)$', proxy)
+    # === TERA MAIN FORMAT: ip:port:username:password ===
+    match = re.match(r'^([^:]+):(\d+):([^:]+):(.+)$', proxy)
     if match:
+        host, port, username, password = match.groups()
+    
+    # Format: username:password@host:port
+    elif re.match(r'^([^@:]+):([^@]+)@([^:@]+):(\d+)$', proxy):
+        match = re.match(r'^([^@:]+):([^@]+)@([^:@]+):(\d+)$', proxy)
         username, password, host, port = match.groups()
+    
     # Format: host:port@username:password
     elif re.match(r'^([a-zA-Z0-9\.\-]+):(\d+)@([^:]+):(.+)$', proxy):
         match = re.match(r'^([a-zA-Z0-9\.\-]+):(\d+)@([^:]+):(.+)$', proxy)
         host, port, username, password = match.groups()
-    # Format: host:port:username:password (check if 2nd part is valid port)
-    elif re.match(r'^([^:]+):(\d+):([^:]+):(.+)$', proxy):
-        match = re.match(r'^([^:]+):(\d+):([^:]+):(.+)$', proxy)
-        potential_host, potential_port, potential_user, potential_pass = match.groups()
-        # Validate port number
-        if 0 < int(potential_port) <= 65535:
-            host, port, username, password = potential_host, potential_port, potential_user, potential_pass
-    # Format: host:port (no authentication)
+    
+    # Format: host:port (no auth)
     elif re.match(r'^([^:@]+):(\d+)$', proxy):
         match = re.match(r'^([^:@]+):(\d+)$', proxy)
         host, port = match.groups()
+    
     else:
         return None
     
-    # Validate that we have at least host and port
+    # Validation
     if not host or not port:
         return None
     
-    # Validate port is numeric and in valid range
     try:
         port_num = int(port)
         if port_num <= 0 or port_num > 65535:
@@ -745,7 +748,7 @@ def parse_proxy_format(proxy):
     except ValueError:
         return None
     
-    # Build proxy URL based on type and authentication
+    # Build proxy URL
     if username and password:
         if proxy_type in ['socks5', 'socks4']:
             proxy_url = f'{proxy_type}://{username}:{password}@{host}:{port}'
@@ -942,7 +945,7 @@ Here are the available command categories.
 `/ran` ⇾ Check CCs from `.txt` using random sites.
 `/deletesites` ⇾ Delete all saved sites.
 `/addtxtsites` ⇾ Import all sites from a replied `.txt` file.
-'/setprxy
+'/setprxy` ⇾ Import all proxy set from a replied `.txt` file.
 
 ** Stripe Auth **
 `/st` ⇾ Check a single CC.
@@ -1273,7 +1276,7 @@ async def set_proxy_bulk(event):
         return await event.reply(banned_user_message())
     
     if not event.reply_to_msg_id:
-        return await event.reply("Reply to proxies.txt file with /setprxy")
+        return await event.reply("Reply to proxies.txt with /setprxy")
     
     replied = await event.get_reply_message()
     if not replied.document:
@@ -1287,45 +1290,41 @@ async def set_proxy_bulk(event):
         
         proxy_lines = [line.strip() for line in content.splitlines() if line.strip()]
         if not proxy_lines:
-            return await event.reply("No proxies found in file.")
+            return await event.reply("No proxies found.")
         
-        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies... (detailed log aa raha hai)")
-        
+        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies...")
         added = 0
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
         
-        for idx, p_str in enumerate(proxy_lines[:20], 1):  # max 20
+        for idx, p_str in enumerate(proxy_lines[:25], 1):
             if len(user_proxies) >= 10:
-                await event.reply("❌ Proxy limit 10 reached!")
+                await event.reply("❌ Max 10 proxies reached!")
                 break
             
             proxy_data = parse_proxy_format(p_str)
             if not proxy_data:
-                await event.reply(f"❌ Invalid format (line {idx}): {p_str}")
+                await event.reply(f"❌ Invalid (line {idx}): {p_str}")
                 continue
             
-            # Duplicate check
             if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies):
                 await event.reply(f"⚠️ Already exists (line {idx})")
                 continue
             
-            # Test with detailed log
-            testing_msg = await event.reply(f"🔄 Testing proxy {idx}/{len(proxy_lines)}...")
+            testing_msg = await event.reply(f"🔄 Testing line {idx}...")
             is_working, result = await test_proxy(proxy_data['proxy_url'])
             
             if not is_working:
-                await testing_msg.edit(f"❌ Dead (line {idx}): {result}")
+                await testing_msg.edit(f"❌ Dead (line {idx})\n{result}")
                 continue
             
-            # Add
             user_proxies.append(proxy_data)
             added += 1
             
             proxy_type_display = proxy_data.get('type', 'http').upper()
-            auth_display = f"👤 {proxy_data['username']}" if proxy_data.get('username') else "🔓 No Auth"
+            auth_display = f"👤 {proxy_data.get('username', 'N/A')}" if proxy_data.get('username') else "🔓 No Auth"
             
-            await testing_msg.edit(f"""✅ Proxy Added Successfully! (line {idx})
+            await testing_msg.edit(f"""✅ Proxy Added Successfully!
 
 🌐 External IP: {result}
 📍 Proxy: {proxy_data['ip']}:{proxy_data['port']}
@@ -1333,12 +1332,11 @@ async def set_proxy_bulk(event):
 {auth_display}
 📊 Total Proxies: {len(user_proxies)}/10""")
             
-            await asyncio.sleep(1)  # thoda smooth
+            await asyncio.sleep(0.8)
         
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        
-        await loading.edit(f"🎉 Bulk Complete!\nAdded: {added}/{len(proxy_lines)}\nTotal: {len(user_proxies)}/10")
+        await loading.edit(f"🎉 Bulk Done!\nSuccessfully Added: {added}\nTotal: {len(user_proxies)}/10")
         
     except Exception as e:
         await event.reply(f"❌ Error: {e}")
