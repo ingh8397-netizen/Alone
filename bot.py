@@ -1647,17 +1647,17 @@ async def process_sh_card(event, access_type):
     max_attempts = 8
     res = None
     site_index = 0
-
     while attempts < max_attempts:
-    if user_id not in ACTIVE_MTXT_PROCESSES:
-        return
+        if user_id not in ACTIVE_MTXT_PROCESSES:
+            return
         attempts += 1
         res, site_index = await check_card_random_site(card, user_sites, event.sender_id)
         response_lower = str(res.get("Response", "")).lower()
-        
-        if any(trigger.lower() in response_lower for trigger in RETRY_TRIGGERS) and attempts < max_attempts:
+
+        if any(trigger.lower() in response_lower for trigger in   RETRY_TRIGGERS) and attempts < max_attempts:
             await asyncio.sleep(0.5 + attempts * 0.2)
             continue
+
         break
 
     end_time = time.time()
