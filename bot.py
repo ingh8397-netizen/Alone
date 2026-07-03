@@ -3,6 +3,7 @@ from telethon.errors import FloodWaitError
 from telethon.tl.types import KeyboardButtonCallback
 from telethon import Button
 from flask import Flask
+from telethon.errors import FloodWait, FloodWaitError
 import threading
 
 import requests
@@ -939,7 +940,7 @@ async def start(event):
     if access_type == "banned": return await event.reply(banned_user_message())
 
     text = """🚀 **Hello and welcome!**
-
+#update
 Here are the available command categoriess.
 
 ** Shopify Self **
@@ -1791,6 +1792,8 @@ async def mtxt(event):
         await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
 
 
+# Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
+
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
@@ -1798,42 +1801,17 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(300)  # 7-8x speed boost
+    semaphore = asyncio.Semaphore(500)  # Speed boost 🔥
 
     RETRY_TRIGGERS = [
-        "merchandise_expected_price_mismatch",
-        "unable to get payment token",
-        "validation_custom",
-        "invalid json response",
-        "delivery_delivery_line_detail_changed",
-        "status: 401",
-        "site error",
-        "no working site found",
-        "products",
-        "cloudflare",
-        "bypass failed",
-        "expecting value",
-        "json",
-        "401",
-        "positive_amount_expected",
-        "rate limit",
-        "too many requests",
-        "429",
-        "403",
-        "timeout",
-        "site requires login",
-        "site not supported",
-        "cart failed with status 503",
-        "connection error",
-        "failed to get session token",
-        "payment method not available",
-        "invalid_payment_method",
-        "<b>Site Error! Status: 402</b>"
-        "delivery_address",
-        "<b>not shopify!</b>",
-        "no valid payment method found",
-        "processing_error",
-        "payments_payment_flexibility_terms_id_mismatch"
+        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
+        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
+        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
+        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
+        "site requires login", "site not supported", "cart failed with status 503", "connection error",
+        "failed to get session token", "payment method not available", "invalid_payment_method",
+        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
+        "no valid payment method found", "processing_error", "payments_payment_flexibility_terms_id_mismatch"
     ]
 
     async def check_single_card(card):
@@ -1842,19 +1820,20 @@ async def process_mtxt_cards(event, cards, local_sites):
             return
 
         attempts = 0
-        max_attempts = 10
+        max_attempts = 12  # Thoda zyada retry for stability
         sites_tried = set()
 
         while attempts < max_attempts:
             attempts += 1
             available_sites = [s for s in local_sites if s not in sites_tried]
             if not available_sites:
-                break
+                # Reset tried if all failed (rare case)
+                sites_tried.clear()
+                available_sites = local_sites[:]
 
             current_site = random.choice(available_sites)
             sites_tried.add(current_site)
 
-            # Site number ke liye index find karo
             site_index = local_sites.index(current_site) + 1 if current_site in local_sites else attempts
 
             async with semaphore:
@@ -1862,21 +1841,22 @@ async def process_mtxt_cards(event, cards, local_sites):
                     result = await check_card_specific_site(card, current_site, user_id)
                     
                     checked += 1
-                    response_text = result.get("Response", "").lower()
+                    response_text = str(result.get("Response", "")).lower()
 
-                    should_retry = any(trigger in response_text for trigger in RETRY_TRIGGERS)
+                    should_retry = any(trigger.lower() in response_text for trigger in RETRY_TRIGGERS)
 
                     if should_retry and attempts < max_attempts:
-                        checked -= 1
-                        await asyncio.sleep(0.4 + attempts * 0.6)
+                        checked -= 1  # Revert for retry
+                        await asyncio.sleep(0.3 + attempts * 0.4)  # Faster backoff
                         continue
 
+                    # BIN Info
                     bin_num = card.split("|")[0]
                     if bin_num not in bin_cache:
                         bin_cache[bin_num] = await get_bin_info(bin_num)
                     brand, bin_type, level, bank, country, flag = bin_cache[bin_num]
 
-                    elapsed_time = round(random.uniform(1.0, 2.8), 2)
+                    elapsed_time = round(random.uniform(0.8, 2.5), 2)
 
                     status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
                     is_hit = False
@@ -1895,7 +1875,6 @@ async def process_mtxt_cards(event, cards, local_sites):
                         declined += 1
 
                     if is_hit:
-                        # Site real number + short name (link nahi)
                         short_site = current_site.replace("https://", "").replace("http://", "").split('/')[0]
                         card_msg = f"""{status_header}
 
@@ -1915,7 +1894,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         if "CHARGED" in status_header:
                             await pin_charged_message(event, result_msg)
 
-                    # Status update
+                    # Live status update - har 2 cards pe (no skip)
                     price = result.get("Price", "N/A")
                     try:
                         price = f"${float(price):.2f}"
@@ -1938,29 +1917,30 @@ async def process_mtxt_cards(event, cards, local_sites):
 """
                     buttons = [
                         [Button.inline(f"💎 𝗖𝗛𝗔𝗥𝗚𝗘𝘿 • {charged}", b"none")],
-                        [Button.inline(f"✅ 𝗔𝗣𝙋𝗥𝗢𝙑𝙀𝘿 • {approved}", b"none")],
+                        [Button.inline(f"✅ 𝗔𝗣𝙋𝗥𝙊𝙑𝙀𝘿 • {approved}", b"none")],
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
-                    if checked % 3 == 0 or checked == total:                
+                    if checked % 2 == 0 or checked == total:  # More frequent updates
                         try:
                             await status_msg.edit(status_text, buttons=buttons)
                         except:
-                            pass
+                            pass  # Ignore edit flood
 
-                    break
+                    break  # Success, next card
 
                 except (FloodWait, FloodWaitError) as e:
-                    wait = (getattr(e, 'value', getattr(e, 'seconds', 30))) + random.randint(1, 4)
-                    print(f"[MTXT] Flood wait {wait}s")
+                    wait = getattr(e, 'value', getattr(e, 'seconds', 25)) + random.randint(1, 5)
+                    print(f"[MTXT] Flood wait {wait}s for {card[:6]}")
                     await asyncio.sleep(wait)
-                    checked -= 1
+                    checked -= 1 if checked > 0 else 0
                     continue
                 except Exception as e:
-                    print(f"[MTXT] Card error {card[:6]}...: {e}")
+                    print(f"[MTXT] Card error {card[:6]}... on attempt {attempts}: {str(e)}")
                     if attempts < max_attempts:
-                        await asyncio.sleep(0.6)
+                        await asyncio.sleep(0.5)
                         continue
+                    # Final fail
                     checked += 1
                     declined += 1
                     break
@@ -1968,12 +1948,16 @@ async def process_mtxt_cards(event, cards, local_sites):
     try:
         tasks = [check_single_card(card) for card in cards]
         await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Cleanup
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
 
-        await event.reply(f"**✅ MTXT CHECK FINISHED**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
+        await event.reply(f"**✅ MTXT CHECK FINISHED SUCCESSFULLY**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
-        print(f"[MTXT] Major Error: {e}")
+        print(f"[MTXT] Major crash prevented: {e}")
+        ACTIVE_MTXT_PROCESSES.pop(user_id, None)
+        await event.reply(f"**⚠️ CHECK ENDED WITH ERROR**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
 
 @client.on(events.CallbackQuery(pattern=rb"stop_mtxt:(\d+)"))
