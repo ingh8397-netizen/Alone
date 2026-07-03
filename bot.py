@@ -24,7 +24,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8337561320:AAE9yTh7Oog0RVoP4QL8JXiOoFE4QGj84kc" # Replace with your Bot Token
+BOT_TOKEN = "8504591675:AAFg-6VnwJ5iF39_77yN4EwxrpxvqzHzqHI" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -1921,6 +1921,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
+                    if checked % 50 == 0 or checked == total:
                     try:
                         await status_msg.edit(status_text, buttons=buttons)
                     except:
@@ -2288,10 +2289,11 @@ async def process_ranfor_cards(event, cards, global_sites):
                     [Button.inline(f"✅ 𝗔𝗣𝗣𝗥𝗢𝗩𝗘𝗗 • {approved}", b"none")],
                     [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_ranfor:{user_id}".encode())]
                 ]
-                try:
-                    await status_msg.edit(status_text, buttons=buttons)
-                except:
-                    pass
+                if checked % 50 == 0 or checked == total:
+                    try:
+                        await status_msg.edit(status_text, buttons=buttons)
+                    except:
+                        pass
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
 
     except Exception as e:
