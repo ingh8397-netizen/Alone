@@ -2383,7 +2383,7 @@ async def process_ranfor_cards(event, cards, global_sites):
                 try:
                     result = await check_card_specific_site(card, current_site, user_id)
                     if user_id not in ACTIVE_MTXT_PROCESSES:
-    return
+                        return
                     checked += 1
                     response_text = str(result.get("Response", "")).lower()
 
