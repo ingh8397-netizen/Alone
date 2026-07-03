@@ -1973,10 +1973,10 @@ async def process_mtxt_cards(event, cards, local_sites):
             site_index = local_sites.index(current_site) + 1 if current_site in local_sites else attempts
 
             async with semaphore:
-            try:
-                result = await check_card_specific_site(card, current_site, user_id)
-                if user_id not in ACTIVE_MTXT_PROCESSES:
-                    return
+                try:
+                    result = await check_card_specific_site(card, current_site, user_id)
+                    if user_id not in ACTIVE_MTXT_PROCESSES:
+                        return
                     
                     checked += 1
                     response_text = str(result.get("Response", "")).lower()
