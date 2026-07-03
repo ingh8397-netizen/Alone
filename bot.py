@@ -1944,7 +1944,7 @@ async def process_mtxt_cards(event, cards, local_sites):
         "failed to get session token", "payment method not available", "invalid_payment_method",
         "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
         "no valid payment method found", "processing_error", "Cart failed with status 422", 
-        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
+        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead", "Cart failed with status 404", "utm_source"
     ]
 
     async def check_single_card(card):
