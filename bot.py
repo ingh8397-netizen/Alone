@@ -1,7 +1,6 @@
 from telethon import TelegramClient, events, Button
 from telethon.errors import FloodWaitError
 from telethon.tl.types import KeyboardButtonCallback
-from pyrogram.errors import FloodWait, FloodWaitError
 from telethon import Button
 from flask import Flask
 import threading
