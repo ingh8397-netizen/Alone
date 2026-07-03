@@ -24,7 +24,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8504591675:AAEl62kUW8wvS1n77VhATAJ7krxv7kkV-fw" # Replace with your Bot Token
+BOT_TOKEN = "8504591675:AAEW_IiyK0YpAkNq5QXX4LSlHxHQq0SY3Vc" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
