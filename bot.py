@@ -23,7 +23,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8504591675:AAGzhQPSrJvhlb8w5lxWVyZyfN_myYIDevc" # Replace with your Bot Token
+BOT_TOKEN = "8504591675:AAH8OjHzgED6vD4TBIPVwvdmgiHiJ2lu-iM" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -2749,9 +2749,17 @@ async def main():
     }
 
     
-    print("𝘽𝙊𝙏 𝙍𝙐𝙉𝙉𝙄𝙉𝙂 💨")
-    await client.start(bot_token=BOT_TOKEN)
-    await client.run_until_disconnected()
+    while True:
+        try:
+            print("𝘽𝙊𝙏 𝙍𝙐𝙉𝙉𝙄𝙉𝙂 💨")
+            await client.start(bot_token=BOT_TOKEN)
+            await client.run_until_disconnected()
+        except FloodWaitError as e:
+            print(f"FloodWait: {e.seconds} seconds")
+            await asyncio.sleep(e.seconds)
+        except Exception as e:
+            print(f"Error: {e}")
+            await asyncio.sleep(10)
 
 if __name__ == "__main__":
     asyncio.run(main())
