@@ -1791,13 +1791,7 @@ async def mtxt(event):
         await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
 
 
-# Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
-
-import asyncio
-import random
-from telethon.errors import FloodWait, FloodWaitError
-from telethon.tl.custom import Button
-
+# Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, 
 # Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
 
 async def process_mtxt_cards(event, cards, local_sites):
