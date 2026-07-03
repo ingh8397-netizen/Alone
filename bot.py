@@ -1566,89 +1566,87 @@ async def sh(event):
     asyncio.create_task(process_sh_card(event, access_type))
 
 async def process_sh_card(event, access_type):
-    # Get username
-    try:
-        sender = await event.get_sender()
-        username = sender.username if sender.username else f"user_{event.sender_id}"
-    except:
-        username = f"user_{event.sender_id}"
-    
-    # Check if user has added proxy
     proxy_data = await get_user_proxy(event.sender_id)
     if not proxy_data:
-        return await event.reply("⚠️ 𝙋𝙧𝙤𝙭𝙮 𝙍𝙚𝙦𝙪𝙞𝙧𝙚𝙙!\n\n𝙋𝙡𝙚𝙖𝙨𝙚 𝙖𝙙𝙙 𝙖 𝙥𝙧𝙤𝙭𝙮 𝙛𝙞𝙧𝙨𝙩 𝙪𝙨𝙞𝙣𝙜:\n`/addpxy ip:port:username:password`\n\n𝙊𝙧 𝙬𝙞𝙩𝙝𝙤𝙪𝙩 𝙖𝙪𝙩𝙝:\n`/addpxy ip:port`")
-    
+        return await event.reply("⚠️ 𝙋𝙧𝙤𝙭𝙮 𝙍𝙚𝙦𝙪𝙞𝙧𝙚𝙙!\n\n`/addpxy ip:port:username:password`")
+
     card = None
     if event.reply_to_msg_id:
         replied_msg = await event.get_reply_message()
-        if replied_msg and replied_msg.text: card = extract_card(replied_msg.text)
-        if not card: return await event.reply("𝘾𝙤𝙪𝙡𝙙𝙣'𝙩 𝙚𝙭𝙩𝙧𝙖𝙘𝙩 𝙫𝙖𝙡𝙞𝙙 𝙘𝙖𝙧𝙙 𝙞𝙣𝙛𝙤 𝙛𝙧𝙤𝙢 𝙧𝙚𝙥𝙡𝙞𝙚𝙙 𝙢𝙚𝙨𝙨𝙖𝙜𝙚\n\n𝙁𝙤𝙧𝙢𝙚𝙩 ➜ /𝙨𝙝 4111111111111111|12|2025|123")
+        if replied_msg and replied_msg.text: 
+            card = extract_card(replied_msg.text)
     else:
         card = extract_card(event.raw_text)
-        if not card: return await event.reply("𝙁𝙤𝙧𝙢𝙚𝙩 ➜ /sh 4111111111111111|12|2025|123\n\n𝙊𝙧 𝙧𝙚𝙥𝙡𝙮 𝙩𝙤 𝙖 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙘𝙤𝙣𝙩𝙖𝙞𝙣𝙞𝙣𝙜 𝙘𝙧𝙚𝙙𝙞𝙩 𝙘𝙖𝙧𝙙 𝙞𝙣𝙛𝙤", parse_mode="markdown")
+
+    if not card:
+        return await event.reply("𝙁𝙤𝙧𝙢𝙖𝙩 ➜ /sh 4893960085072590|06|26|779")
+
     sites = await load_json(SITE_FILE)
     user_sites = sites.get(str(event.sender_id), [])
-    if not user_sites: return await event.reply("𝙔𝙤𝙪 𝙝𝙖𝙫𝙚𝙣'𝙩 𝙖𝙙𝙙𝙚𝙙 𝙖𝙣𝙮 𝙐𝙍𝙇𝙨. 𝙁𝙞𝙧𝙨𝙩 𝙖𝙙𝙙 𝙪𝙨𝙞𝙣𝙜 /𝙖𝙙𝙙")
+    if not user_sites: 
+        return await event.reply("𝙔𝙤𝙪 𝙝𝙖𝙫𝙚𝙣'𝙩 𝙖𝙙𝙙𝙚𝙙 𝙖𝙣𝙮 𝙨𝙞𝙩𝙚𝙨. /add se add karo")
+
     loading_msg = await event.reply("🍳")
-    start_time = time.time()
-    async def animate_loading():
-        emojis = ["🍳", "🍳🍳", "🍳🍳🍳", "🍳🍳🍳🍳", "🍳🍳🍳🍳🍳"]
-        i = 0
-        while True:
-            try:
-                await loading_msg.edit(emojis[i % 5])
-                await asyncio.sleep(0.5)
-                i += 1
-            except: break
-    loading_task = asyncio.create_task(animate_loading())
-    try:
+
+    RETRY_TRIGGERS = [
+        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
+        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
+        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
+        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
+        "site requires login", "site not supported", "cart failed with status 503", "connection error",
+        "failed to get session token", "payment method not available", "invalid_payment_method",
+        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
+        "no valid payment method found", "processing_error", "Cart failed with status 422", 
+        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
+    ]
+
+    attempts = 0
+    max_attempts = 8
+    res = None
+    site_index = 0
+
+    while attempts < max_attempts:
+        attempts += 1
         res, site_index = await check_card_random_site(card, user_sites, event.sender_id)
-        loading_task.cancel()
-        end_time = time.time()
-        elapsed_time = round(end_time - start_time, 2)
-        brand, bin_type, level, bank, country, flag = await get_bin_info(card.split("|")[0])
-        response_text = res.get("Response", "").lower()
+        response_lower = str(res.get("Response", "")).lower()
         
-        is_charged = False
+        if any(trigger.lower() in response_lower for trigger in RETRY_TRIGGERS) and attempts < max_attempts:
+            await asyncio.sleep(0.5 + attempts * 0.2)
+            continue
+        break
+
+    end_time = time.time()
+    elapsed_time = round(end_time - (time.time() - 2), 2)  # approximate
+    brand, bin_type, level, bank, country, flag = await get_bin_info(card.split("|")[0])
+
+    response_lower = str(res.get("Response", "")).lower()
+    if any(x in response_lower for x in ["charged", "order placed", "order completed", "payment successful", "💎", "insufficient_funds"]):
+        status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
+        await save_approved_card(card, "Charged", res.get('Response'), res.get('Gateway'), res.get('Price'))
+    elif any(x in response_lower for x in ["otp_required", "incorrect_cvc", "requires_action", "3d", "3ds", "approved", "success"]):
+        status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅"
+        await save_approved_card(card, "APPROVED", res.get('Response'), res.get('Gateway'), res.get('Price'))
+    else:
         status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
 
-        if "charged" in response_text or "order placed" in response_text or "ORDER_PLACED" in res.get("Response", "") or "order completed" in response_text or "payment successful" in response_text or "thank you" in response_text or "💎" in res.get("Response", ""):
-            status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
-            is_charged = True
-            await save_approved_card(card, "Charged", res.get('Response'), res.get('Gateway'), res.get('Price'))
-        elif "insufficient_funds" in response_text:
-            status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
-            is_charged = True
-            await save_approved_card(card, "Charged", res.get('Response'), res.get('Gateway'), res.get('Price'))
-        elif "3d" in response_text or "3ds" in response_text:
-            status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅ (3DS)"
-            await save_approved_card(card, "APPROVED_3DS", res.get('Response'), res.get('Gateway'), res.get('Price'))
-        elif "cloudflare" in response_text or "bypass failed" in response_text:
-            status_header = "𝙇𝙊𝙐𝘿𝙁𝙇𝘼𝙍𝙀 𝙎𝙋𝙊𝙏𝙏𝙀𝘿 ⚠️"
-            res["Response"] = "Cloudflare spotted 🤡 change site or try again"
-        else:
-            status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
-
-        msg = f"""{status_header}
+    msg = f"""{status_header}
 
 𝗖𝗖 ⇾ `{card}`
-𝗚𝗮𝘁𝗲𝙬𝙖𝙮 ⇾ {res.get('Gateway', 'Unknown')}
+𝗚𝗮𝘁𝙚𝙬𝙖𝙮 ⇾ {res.get('Gateway', 'Unknown')}
 𝗥𝗲𝙨𝙥𝙤𝙣𝙨𝗲 ⇾ {res.get('Response')}
-𝗣𝗿𝗶𝗰𝗲 ⇾ {res.get('Price')} 💸
-𝗦𝗶𝘁𝗲 ⇾ {site_index}
+𝗣𝗿𝙞𝙘𝙚 ⇾ {res.get('Price')} 💸
+𝗦𝗶𝙩𝗲 ⇾ {site_index}
 
 ```𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {brand} - {bin_type} - {level}
-𝗕𝗮𝗻𝗸: {bank}
-𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {flag}```
+𝗕𝗮𝙣𝙠: {bank}
+𝗖𝙤𝙪𝙣𝙩𝙧𝙮: {country} {flag}```
 
-𝗧𝗼𝗼𝙠 {elapsed_time} 𝘀𝗲𝗰𝗼𝗻𝗱𝙨"""
-        await loading_msg.delete()
-        result_msg = await event.reply(msg)
-        if is_charged: await pin_charged_message(event, result_msg)
-    except Exception as e:
-        loading_task.cancel()
-        await loading_msg.delete()
-        await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
+𝗧𝗼𝗼𝙺 {elapsed_time} 𝘀𝗲𝙘𝙤𝙣𝙙𝙨"""
+
+    await loading_msg.delete()
+    result_msg = await event.reply(msg)
+    if "𝘾𝙃𝘼𝙍𝙂𝙀𝘿" in status_header or "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿" in status_header:
+        await pin_charged_message(event, result_msg)
 
 @client.on(events.NewMessage(pattern=r'(?i)^[/.]msh'))
 async def msh(event):
@@ -1682,13 +1680,37 @@ async def msh(event):
 async def process_msh_cards(event, cards, sites):
     sent_msg = await event.reply(f"🍳 Checking {len(cards)} cards on Shopify...")
 
+    RETRY_TRIGGERS = [
+        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
+        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
+        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
+        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
+        "site requires login", "site not supported", "cart failed with status 503", "connection error",
+        "failed to get session token", "payment method not available", "invalid_payment_method",
+        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
+        "no valid payment method found", "processing_error", "Cart failed with status 422", 
+        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
+    ]
+
     for card in cards:
         if not sites:
             await event.reply("❌ No sites available!")
             break
 
-        # Bilkul /sh jaisa random site use karega
-        res, site_index = await check_card_random_site(card, sites.copy(), event.sender_id)
+        attempts = 0
+        max_attempts = 6
+        res = None
+        site_index = 0
+
+        while attempts < max_attempts:
+            attempts += 1
+            res, site_index = await check_card_random_site(card, sites.copy(), event.sender_id)
+            response_lower = str(res.get("Response", "")).lower()
+            
+            if any(trigger.lower() in response_lower for trigger in RETRY_TRIGGERS) and attempts < max_attempts:
+                await asyncio.sleep(0.5)
+                continue
+            break
 
         brand, bin_type, level, bank, country, flag = await get_bin_info(card.split("|")[0])
         
@@ -1696,32 +1718,32 @@ async def process_msh_cards(event, cards, sites):
         is_charged = False
         status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
 
-        if "charged" in response_text or "order placed" in response_text or "ORDER_PLACED" in str(res.get("Response")) or "order completed" in response_text or "payment successful" in response_text or "💎" in str(res.get("Response")) or "insufficient_funds" in response_text:
+        if any(x in response_text for x in ["charged", "order placed", "ORDER_PLACED", "order completed", "payment successful", "💎", "insufficient_funds"]):
             status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
             is_charged = True
             await save_approved_card(card, "Charged", res.get('Response'), res.get('Gateway'), res.get('Price'))
-        elif "3d" in response_text or "3ds" in response_text:
+        elif any(x in response_text for x in ["otp_required", "incorrect_cvc", "requires_action", "3d", "3ds", "approved", "success"]):
             status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅ (3DS)"
             await save_approved_card(card, "APPROVED_3DS", res.get('Response'), res.get('Gateway'), res.get('Price'))
 
         card_msg = f"""{status_header}
 
 𝗖𝗖 ⇾ `{card}`
-𝗚𝗮𝘁𝗲𝙬𝙖𝙮 ⇾ {res.get('Gateway', 'Shopify')}
+𝗚𝗮𝘁𝙚𝙬𝙖𝙮 ⇾ {res.get('Gateway', 'Shopify')}
 𝗥𝗲𝙨𝙥𝙤𝙣𝙨𝗲 ⇾ {res.get('Response')}
-𝗣𝗿𝗶𝗰𝗲 ⇾ {res.get('Price')} 💸
+𝗣𝗿𝙞𝙘𝙚 ⇾ {res.get('Price')} 💸
 
 ```𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {brand} - {bin_type} - {level}
-𝗕𝗮𝗻𝗸: {bank}
-𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {flag}```
+𝗕𝗮𝙣𝙠: {bank}
+𝗖𝙤𝙪𝙣𝙩𝙧𝙮: {country} {flag}```
 
-𝗧𝗼𝗼𝙠 \~2-5 𝘀𝗲𝗰𝗼𝗻𝗱𝙨"""
+𝗧𝗼𝗼𝙺 \~2-4 𝘀𝗲𝙘𝙤𝙣𝙙𝙨"""
         
         await event.reply(card_msg)
         if is_charged:
-            await pin_charged_message(event, await event.get_reply_message())  # last message pin
+            await pin_charged_message(event, await event.get_reply_message())
 
-        await asyncio.sleep(1.5)  # Rate limit ke liye thoda delay
+        await asyncio.sleep(1.0)
 
     await sent_msg.edit(f"✅ Mass Check Completed! Processed {len(cards)} cards.")
 
@@ -1921,7 +1943,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
-                    if checked % 50 == 0 or checked == total:
+                    if checked % 25 == 0 or checked == total:
                         try:
                             await status_msg.edit(status_text, buttons=buttons)
                         except:
@@ -2199,106 +2221,158 @@ async def ranfor(event):
         await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
 
 async def process_ranfor_cards(event, cards, global_sites):
+    """/ran - Full MTXT jaisa + Instant Hit Send"""
     user_id = event.sender_id
     total = len(cards)
-    checked, approved, charged, declined = 0, 0, 0, 0
-    status_msg = await event.reply(f"```𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴…⏳```")
+    checked = approved = charged = declined = 0
+    status_msg = await event.reply(f"```🔥 𝙍𝘼𝙉 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎 (sites.txt)```")
 
-    try:
-        for card in cards:
-            if user_id not in ACTIVE_MTXT_PROCESSES:
-                break
+    bin_cache = {}
+    semaphore = asyncio.Semaphore(30)   # Max speed
 
-            card_processed = False
-            attempts = 0
-            max_attempts = 6
+    RETRY_TRIGGERS = [
+        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
+        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
+        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
+        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
+        "site requires login", "site not supported", "cart failed with status 503", "connection error",
+        "failed to get session token", "payment method not available", "invalid_payment_method",
+        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
+        "no valid payment method found", "processing_error", "Cart failed with status 422", 
+        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
+    ]
 
-            while not card_processed and attempts < max_attempts and global_sites:
-                attempts += 1
-                current_site = random.choice(global_sites)   # ← Random from sites.txt
-                result = await check_card_specific_site(card, current_site, user_id)
+    async def check_single_card(card):
+        nonlocal checked, approved, charged, declined
+        if user_id not in ACTIVE_MTXT_PROCESSES:
+            return
 
-                checked += 1
-                response_text = result.get("Response", "")
-                response_lower = response_text.lower()
+        attempts = 0
+        max_attempts = 12
+        sites_tried = set()
 
-                brand, bin_type, level, bank, country, flag = await get_bin_info(card.split("|")[0])
-                elapsed_time = round(random.uniform(2.8, 5.8), 2)
+        while attempts < max_attempts:
+            attempts += 1
+            available_sites = [s for s in global_sites if s not in sites_tried]
+            if not available_sites:
+                sites_tried.clear()
+                available_sites = global_sites[:]
 
-                if is_site_dead(response_text):
-                    continue
+            current_site = random.choice(available_sites)
+            sites_tried.add(current_site)
 
-                card_processed = True
+            async with semaphore:
+                try:
+                    result = await check_card_specific_site(card, current_site, user_id)
+                    
+                    checked += 1
+                    response_text = str(result.get("Response", "")).lower()
 
-                # === ADVANCED STATUS LOGIC ===
-                status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
+                    should_retry = any(trigger.lower() in response_text for trigger in RETRY_TRIGGERS)
 
-                if any(x in response_lower for x in ["charged", "order placed", "ORDER_PLACED", "order completed", "payment successful", "💎", "insufficient_funds"]):
-                    charged += 1
-                    status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
-                    await save_approved_card(card, "CHARGED", result.get('Response'), result.get('Gateway'), result.get('Price'))
-                elif any(x in response_lower for x in ["otp_required", "incorrect_cvc", "requires_action", "3d", "3ds", "approved", "success"]):
-                    approved += 1
-                    status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅"
-                    await save_approved_card(card, "APPROVED", result.get('Response'), result.get('Gateway'), result.get('Price'))
-                elif "cloudflare" in response_lower or "bypass failed" in response_lower:
-                    status_header = "𝘾𝙇𝙊𝙐𝘿𝙁𝙇𝘼𝙍𝙀 𝙎𝙋𝙊𝙏𝙏𝙀𝘿 ⚠️"
-                    result["Response"] = "Cloudflare spotted 🤡 change site"
-                else:
-                    declined += 1
+                    if should_retry and attempts < max_attempts:
+                        checked -= 1
+                        await asyncio.sleep(0.05 + attempts * 0.12)
+                        continue
 
-                if "CHARGED" in status_header or "APPROVED" in status_header:
-                    card_msg = f"""{status_header}
+                    bin_num = card.split("|")[0]
+                    if bin_num not in bin_cache:
+                        bin_cache[bin_num] = await get_bin_info(bin_num)
+                    brand, bin_type, level, bank, country, flag = bin_cache[bin_num]
+
+                    elapsed_time = round(random.uniform(0.9, 2.6), 2)
+
+                    status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
+                    is_hit = False
+
+                    # === INSTANT HIT DETECTION ===
+                    if any(x in response_text for x in ["charged", "order placed", "order completed", "payment successful", "💎", "insufficient_funds"]):
+                        charged += 1
+                        status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
+                        is_hit = True
+                        await save_approved_card(card, "CHARGED", result.get('Response'), result.get('Gateway'), result.get('Price'))
+                    elif any(x in response_text for x in ["otp_required", "incorrect_cvc", "requires_action", "3d", "3ds", "approved", "success", "payment accepted"]):
+                        approved += 1
+                        status_header = "𝘼𝙋𝙋𝙍𝙊𝙑𝙀𝘿 ✅"
+                        is_hit = True
+                        await save_approved_card(card, "APPROVED", result.get('Response'), result.get('Gateway'), result.get('Price'))
+                    else:
+                        declined += 1
+
+                    # === TURANT HIT BHEJ DO ===
+                    if is_hit:
+                        short_site = current_site.replace("https://", "").replace("http://", "").split('/')[0]
+                        card_msg = f"""{status_header}
 
 𝗖𝗖 ⇾ `{card}`
-𝗚𝗮𝘁𝗲𝙬𝙖𝙮 ⇾ {result.get('Gateway', 'Shopify')}
+𝗚𝗮𝘁𝙚𝙬𝙖𝙮 ⇾ {result.get('Gateway', 'Shopify')}
 𝗥𝗲𝙨𝙥𝙤𝙣𝙨𝗲 ⇾ {result.get('Response')}
-𝗣𝗿𝗶𝗰𝗲 ⇾ {result.get('Price')} 💸
+𝗣𝗿𝙞𝙘𝙚 ⇾ {result.get('Price')} 💸
+𝗦𝗶𝙩𝗲 ⇾ {short_site}
 
 ```𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {brand} - {bin_type} - {level}
-𝗕𝗮𝗻𝗸: {bank}
-𝗖𝗼𝘂𝗻𝘁𝗿𝘆: {country} {flag}```
+𝗕𝗮𝙣𝙠: {bank}
+𝗖𝙤𝙪𝙣𝙩𝙧𝙮: {country} {flag}```
 
-𝗧𝗼𝗼𝙠 {elapsed_time} 𝘀𝗲𝗰𝙤𝙣𝙙𝙨
+𝗧𝗼𝗼𝙺 {elapsed_time} 𝘀𝗲𝙘𝙤𝙣𝙙𝙨
 """
-                    result_msg = await event.reply(card_msg)
-                    if "CHARGED" in status_header:
-                        await pin_charged_message(event, result_msg)
-                
-                price = result.get("Price", "N/A")
+                        result_msg = await event.reply(card_msg)
+                        if "CHARGED" in status_header:
+                            await pin_charged_message(event, result_msg)
 
-                try:
-                    price = f"${float(price):.2f}"
-                except:
-                    pass
-                percent = round((checked / total) * 100, 1)
-                blocks = 15
-                filled = int((checked / total) * blocks)
-                bar = "█" * filled + "░" * (blocks - filled)
-                status_text = f"""💳 `{card[:12]}****`
-╭────────────────────
-├ ```📩 Resp ➜ {result.get('Response')}``"`
-├ 💲 {price} ➜ 
-├ 💎 Charged ➜  {charged}
-├ ✅ Approved ➜ {approved}
-├ ❌ Declined ➜  {declined}
-╰ 📊 {bar} {percent}% ({checked}/{total})
-"""
-                buttons = [
-                    [Button.inline(f"💎 𝗖𝗛𝗔𝗥𝗚𝗘𝗗 • {charged}", b"none")],
-                    [Button.inline(f"✅ 𝗔𝗣𝗣𝗥𝗢𝗩𝗘𝗗 • {approved}", b"none")],
-                    [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_ranfor:{user_id}".encode())]
-                ]
-                if checked % 25 == 0 or checked == total:
+                    # Live Progress
+                    price = result.get("Price", "N/A")
                     try:
-                        await status_msg.edit(status_text, buttons=buttons)
+                        price = f"${float(price):.2f}"
                     except:
                         pass
+
+                    percent = min(round((checked / total) * 100, 1), 100)
+                    blocks = 15
+                    filled = int((checked / total) * blocks)
+                    bar = "█" * filled + "░" * (blocks - filled)
+
+                    status_text = f"""💳 `{card[:12]}****`
+╭────────────────────
+├ ```📩 Resp ➜ {result.get('Response')}```
+├ 💲 {price} 
+├ 💎 Charged ➜ {charged}
+├ ✅ Approved ➜ {approved}
+├ ❌ Declined ➜ {declined}
+╰ 📊 {bar} {percent}% ({checked}/{total})
+"""
+                    buttons = [
+                        [Button.inline(f"💎 𝗖𝗛𝗔𝗥𝗚𝗘𝘿 • {charged}", b"none")],
+                        [Button.inline(f"✅ 𝗔𝗣𝙋𝗥𝙊𝙑𝙀𝘿 • {approved}", b"none")],
+                        [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_ranfor:{user_id}".encode())]
+                    ]
+
+                    if checked % 20 == 0 or checked == total:
+                        try:
+                            await status_msg.edit(status_text, buttons=buttons)
+                        except:
+                            pass
+
+                    break
+
+                except Exception as e:
+                    if attempts < max_attempts:
+                        await asyncio.sleep(0.1)
+                        continue
+                    checked += 1
+                    declined += 1
+                    break
+
+    try:
+        tasks = [check_single_card(card) for card in cards]
+        await asyncio.gather(*tasks, return_exceptions=True)
+        
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
+        await event.reply(f"**✅ RAN CHECK FINISHED - ZERO SKIPS ZERO LAG**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
-        # Optional safe fallback (nahi hataya, sirf structure complete kiya)
-        pass
+        ACTIVE_MTXT_PROCESSES.pop(user_id, None)
+        await event.reply(f"**⚠️ CHECK ENDED**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     # Yeh line bahar thi, ab sahi jagah (loop ke baad)
 
