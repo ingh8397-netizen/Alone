@@ -1793,6 +1793,13 @@ async def mtxt(event):
 
 # Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
 
+import asyncio
+import random
+from telethon.errors import FloodWait, FloodWaitError
+from telethon.tl.custom import Button
+
+# Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
+
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
@@ -1800,7 +1807,7 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(500)  # Speed boost 🔥
+    semaphore = asyncio.Semaphore(10)  # Exactly 10 at once for stability + speed
 
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
@@ -1810,7 +1817,7 @@ async def process_mtxt_cards(event, cards, local_sites):
         "site requires login", "site not supported", "cart failed with status 503", "connection error",
         "failed to get session token", "payment method not available", "invalid_payment_method",
         "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
-        "no valid payment method found", "processing_error", "payments_payment_flexibility_terms_id_mismatch"
+        "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch"
     ]
 
     async def check_single_card(card):
@@ -1819,14 +1826,13 @@ async def process_mtxt_cards(event, cards, local_sites):
             return
 
         attempts = 0
-        max_attempts = 12  # Thoda zyada retry for stability
+        max_attempts = 12
         sites_tried = set()
 
         while attempts < max_attempts:
             attempts += 1
             available_sites = [s for s in local_sites if s not in sites_tried]
             if not available_sites:
-                # Reset tried if all failed (rare case)
                 sites_tried.clear()
                 available_sites = local_sites[:]
 
@@ -1845,11 +1851,10 @@ async def process_mtxt_cards(event, cards, local_sites):
                     should_retry = any(trigger.lower() in response_text for trigger in RETRY_TRIGGERS)
 
                     if should_retry and attempts < max_attempts:
-                        checked -= 1  # Revert for retry
-                        await asyncio.sleep(0.3 + attempts * 0.4)  # Faster backoff
+                        checked -= 1
+                        await asyncio.sleep(0.2 + attempts * 0.3)  # Ultra fast backoff
                         continue
 
-                    # BIN Info
                     bin_num = card.split("|")[0]
                     if bin_num not in bin_cache:
                         bin_cache[bin_num] = await get_bin_info(bin_num)
@@ -1887,13 +1892,13 @@ async def process_mtxt_cards(event, cards, local_sites):
 𝗕𝗮𝙣𝙠: {bank}
 𝗖𝙤𝙪𝙣𝙩𝙧𝙮: {country} {flag}```
 
-𝗧𝗼𝗼𝙠 {elapsed_time} 𝘀𝗲𝙘𝙤𝙣𝙙𝙨
+𝗧𝗼𝗼𝙺 {elapsed_time} 𝘀𝗲𝙘𝙤𝙣𝙙𝙨
 """
                         result_msg = await event.reply(card_msg)
                         if "CHARGED" in status_header:
                             await pin_charged_message(event, result_msg)
 
-                    # Live status update - har 2 cards pe (no skip)
+                    # Status EVERY check (zero skip)
                     price = result.get("Price", "N/A")
                     try:
                         price = f"${float(price):.2f}"
@@ -1920,16 +1925,15 @@ async def process_mtxt_cards(event, cards, local_sites):
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
-                    if checked % 2 == 0 or checked == total:  # More frequent updates
-                        try:
-                            await status_msg.edit(status_text, buttons=buttons)
-                        except:
-                            pass  # Ignore edit flood
+                    try:
+                        await status_msg.edit(status_text, buttons=buttons)
+                    except:
+                        pass
 
-                    break  # Success, next card
+                    break
 
                 except (FloodWait, FloodWaitError) as e:
-                    wait = getattr(e, 'value', getattr(e, 'seconds', 25)) + random.randint(1, 5)
+                    wait = getattr(e, 'value', getattr(e, 'seconds', 20)) + random.randint(1, 3)
                     print(f"[MTXT] Flood wait {wait}s for {card[:6]}")
                     await asyncio.sleep(wait)
                     checked -= 1 if checked > 0 else 0
@@ -1937,9 +1941,8 @@ async def process_mtxt_cards(event, cards, local_sites):
                 except Exception as e:
                     print(f"[MTXT] Card error {card[:6]}... on attempt {attempts}: {str(e)}")
                     if attempts < max_attempts:
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(0.3)
                         continue
-                    # Final fail
                     checked += 1
                     declined += 1
                     break
@@ -1948,7 +1951,6 @@ async def process_mtxt_cards(event, cards, local_sites):
         tasks = [check_single_card(card) for card in cards]
         await asyncio.gather(*tasks, return_exceptions=True)
         
-        # Cleanup
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
 
         await event.reply(f"**✅ MTXT CHECK FINISHED SUCCESSFULLY**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
