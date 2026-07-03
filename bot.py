@@ -1747,6 +1747,68 @@ async def process_msh_cards(event, cards, sites):
 
     await sent_msg.edit(f"✅ Mass Check Completed! Processed {len(cards)} cards.")
 
+@client.on(events.NewMessage(pattern=r'(?i)^[/.]cutfile'))
+async def cutfile(event):
+    if await is_banned_user(event.sender_id):
+        return await event.reply(banned_user_message())
+    
+    can_access, access_type = await can_use(event.sender_id, event.chat)
+    if not can_access:
+        return await event.reply("Premium/Group only for heavy ops bro.")
+    
+    if not event.reply_to_msg_id:
+        return await event.reply("Reply to a .txt file with /cutfile [num_parts]")
+    
+    replied = await event.get_reply_message()
+    if not replied.document or not replied.file.name.endswith('.txt'):
+        return await event.reply("Only .txt files supported for splitting CC dumps.")
+    
+    try:
+        parts_arg = event.raw_text.split()
+        num_parts = int(parts_arg[1]) if len(parts_arg) > 1 else 40  # Default 40 for 200MB
+        if num_parts < 2 or num_parts > 100:
+            num_parts = 40
+        
+        loading = await event.reply(f"🔪 Splitting into {num_parts} parts... (200MB beast incoming)")
+        
+        file_path = await replied.download_media()
+        
+        async with aiofiles.open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = await f.read()
+        
+        os.remove(file_path)
+        
+        lines = content.splitlines()
+        total_lines = len(lines)
+        lines_per_part = max(1, total_lines // num_parts)
+        
+        split_files = []
+        for i in range(num_parts):
+            start = i * lines_per_part
+            end = start + lines_per_part if i < num_parts - 1 else total_lines
+            part_lines = lines[start:end]
+            
+            if not part_lines:
+                break
+            
+            part_filename = f"part_{i+1}_{replied.file.name}"
+            part_path = f"/tmp/{part_filename}"
+            
+            async with aiofiles.open(part_path, "w", encoding="utf-8") as pf:
+                await pf.write("\n".join(part_lines))
+            
+            split_files.append(part_path)
+            
+            # Send immediately
+            await event.reply(f"📦 Part {i+1}/{num_parts} ({len(part_lines)} lines)", file=part_path)
+            os.remove(part_path)
+            await asyncio.sleep(0.5)  # Avoid flood
+        
+        await loading.edit(f"✅ Split complete! {len(split_files)} parts sent.\nTotal lines: {total_lines}\nUse /mtxt on each part.")
+        
+    except Exception as e:
+        await event.reply(f"❌ Cut failed: {str(e)}")
+        
 @client.on(events.NewMessage(pattern=r'(?i)^[/.]mtxt$'))
 async def mtxt(event):
     can_access, access_type = await can_use(event.sender_id, event.chat)
