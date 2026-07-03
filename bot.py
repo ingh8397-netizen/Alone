@@ -23,7 +23,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8504591675:AAFFgvdpt69GbuKdbXBIJE0ZfRlp_pTAJQ0" # Replace with your Bot Token
+BOT_TOKEN = "8504591675:AAFj9sgq1U473fePD6ke3fU7fmdLtfNpjDA" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -942,6 +942,7 @@ Here are the available command categories.
 `/ran` ⇾ Check CCs from `.txt` using random sites.
 `/deletesites` ⇾ Delete all saved sites.
 `/addtxtsites` ⇾ Import all sites from a replied `.txt` file.
+'/setprxy
 
 ** Stripe Auth **
 `/st` ⇾ Check a single CC.
@@ -1245,19 +1246,22 @@ async def add_sites_bulk_txt(event):
         async with aiofiles.open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             text = await f.read()
         os.remove(file_path)
+        
         txt_sites = extract_urls_from_text(text)
         if not txt_sites:
-            return await event.reply("No valid sites found.")
+            return await event.reply("❌ No valid sites found.")
+        
         data = await load_json(SITE_FILE)
         user_sites = data.get(str(event.sender_id), [])
         added = 0
         for site in txt_sites:
-            if site not in user_sites:
-                user_sites.append(site)
+            clean_site = site.replace("https://", "").replace("http://", "").strip()
+            if clean_site not in user_sites:
+                user_sites.append(clean_site)
                 added += 1
         data[str(event.sender_id)] = user_sites
         await save_json(SITE_FILE, data)
-        await event.reply(f"✅ Sites added: {added}\nTotal: {len(user_sites)}")
+        await event.reply(f"✅ Sites added successfully!\nAdded: {added}\nTotal sites: {len(user_sites)}")
     except Exception as e:
         await event.reply(f"❌ Error: {e}")
 # === NEW BULK COMMAND ===
@@ -1269,11 +1273,11 @@ async def set_proxy_bulk(event):
         return await event.reply(banned_user_message())
     
     if not event.reply_to_msg_id:
-        return await event.reply("Reply to a .txt file (one proxy per line) with /setprxy")
+        return await event.reply("Reply to proxies.txt file with /setprxy")
     
     replied = await event.get_reply_message()
     if not replied.document:
-        return await event.reply("Reply to a .txt file!")
+        return await event.reply("Reply to .txt file!")
     
     file_path = await replied.download_media()
     try:
@@ -1283,31 +1287,59 @@ async def set_proxy_bulk(event):
         
         proxy_lines = [line.strip() for line in content.splitlines() if line.strip()]
         if not proxy_lines:
-            return await event.reply("No proxies found.")
+            return await event.reply("No proxies found in file.")
         
-        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies...")
+        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies... (detailed log aa raha hai)")
         
         added = 0
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
         
-        for p_str in proxy_lines[:20]:
+        for idx, p_str in enumerate(proxy_lines[:20], 1):  # max 20
             if len(user_proxies) >= 10:
+                await event.reply("❌ Proxy limit 10 reached!")
                 break
+            
             proxy_data = parse_proxy_format(p_str)
             if not proxy_data:
+                await event.reply(f"❌ Invalid format (line {idx}): {p_str}")
                 continue
+            
+            # Duplicate check
             if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies):
+                await event.reply(f"⚠️ Already exists (line {idx})")
                 continue
-            is_working, _ = await test_proxy(proxy_data['proxy_url'])
-            if is_working:
-                user_proxies.append(proxy_data)
-                added += 1
+            
+            # Test with detailed log
+            testing_msg = await event.reply(f"🔄 Testing proxy {idx}/{len(proxy_lines)}...")
+            is_working, result = await test_proxy(proxy_data['proxy_url'])
+            
+            if not is_working:
+                await testing_msg.edit(f"❌ Dead (line {idx}): {result}")
+                continue
+            
+            # Add
+            user_proxies.append(proxy_data)
+            added += 1
+            
+            proxy_type_display = proxy_data.get('type', 'http').upper()
+            auth_display = f"👤 {proxy_data['username']}" if proxy_data.get('username') else "🔓 No Auth"
+            
+            await testing_msg.edit(f"""✅ Proxy Added Successfully! (line {idx})
+
+🌐 External IP: {result}
+📍 Proxy: {proxy_data['ip']}:{proxy_data['port']}
+🔐 Type: {proxy_type_display}
+{auth_display}
+📊 Total Proxies: {len(user_proxies)}/10""")
+            
+            await asyncio.sleep(1)  # thoda smooth
         
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
         
-        await loading.edit(f"✅ Bulk proxies added!\nAdded: {added}\nTotal: {len(user_proxies)}/10\nUse /proxy to see.")
+        await loading.edit(f"🎉 Bulk Complete!\nAdded: {added}/{len(proxy_lines)}\nTotal: {len(user_proxies)}/10")
+        
     except Exception as e:
         await event.reply(f"❌ Error: {e}")
 
