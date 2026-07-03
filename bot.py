@@ -467,10 +467,10 @@ async def check_card_specific_site(card, site, user_id=None):
 def extract_card(text):
     if not text:
         return None
-    # Ultra aggressive clean for Stripe
-    text = re.sub(r'[^0-9|\s/]', '', text.strip())
-    # Try regex first (most reliable)
-    match = re.search(r'(\d{13,19})\D*(\d{1,2})\D*(\d{2,4})\D*(\d{3,4})', text)
+    # === NEW ULTRA AGGRESSIVE FOR YOUR FORMAT ===
+    text = str(text).strip()
+    # Pehle pura CC|MM|YY|CVV nikaal lo even with extra junk
+    match = re.search(r'(\d{13,19})\|(\d{1,2})\|(\d{2,4})\|(\d{3,4})', text)
     if match:
         cc, mm, yy, cvv = match.groups()
         if len(yy) == 4:
@@ -479,15 +479,18 @@ def extract_card(text):
         yy = yy.zfill(2)
         cvv = cvv[:4]
         return f"{cc}|{mm}|{yy}|{cvv}"
+    
+    # Fallback old method
     return normalize_card(text)
 
 def extract_all_cards(text):
     cards = set()
     for line in text.splitlines():
         card = extract_card(line)
-        if card: cards.add(card)
+        if card:
+            cards.add(card)
     return list(cards)
-
+    
 async def can_use(user_id, chat):
     # ✅ Admin always has full access everywhere
     if user_id in ADMIN_ID:
