@@ -940,7 +940,7 @@ async def start(event):
 
     text = """🚀 **Hello and welcome!**
 
-Here are the available command categories.
+Here are the available command categoriess.
 
 ** Shopify Self **
 `/sh` ⇾ Check a single CC.
@@ -1798,13 +1798,42 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(40)  # 7-8x speed boost
+    semaphore = asyncio.Semaphore(20)  # 7-8x speed boost
 
     RETRY_TRIGGERS = [
-        "merchandise_expected_price_mismatch", "validation_custom", "invalid json response",
-        "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found",
-        "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected",
-        "rate limit", "too many requests", "429", "403", "timeout", "Site requires login", "Site requires login!", "Site not supported", "connection error"
+        "merchandise_expected_price_mismatch",
+        "unable to get payment token",
+        "validation_custom",
+        "invalid json response",
+        "delivery_delivery_line_detail_changed",
+        "status: 401",
+        "site error",
+        "no working site found",
+        "products",
+        "cloudflare",
+        "bypass failed",
+        "expecting value",
+        "json",
+        "401",
+        "positive_amount_expected",
+        "rate limit",
+        "too many requests",
+        "429",
+        "403",
+        "timeout",
+        "site requires login",
+        "site not supported",
+        "cart failed with status 503",
+        "connection error",
+        "failed to get session token",
+        "payment method not available",
+        "invalid_payment_method",
+        "<b>Site Error! Status: 402</b>"
+        "delivery_address",
+        "<b>not shopify!</b>",
+        "no valid payment method found",
+        "processing_error",
+        "payments_payment_flexibility_terms_id_mismatch"
     ]
 
     async def check_single_card(card):
@@ -1813,7 +1842,7 @@ async def process_mtxt_cards(event, cards, local_sites):
             return
 
         attempts = 0
-        max_attempts = 3
+        max_attempts = 20
         sites_tried = set()
 
         while attempts < max_attempts:
