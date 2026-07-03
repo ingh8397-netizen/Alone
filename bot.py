@@ -24,7 +24,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8337561320:AAHo3M6OaF2wMwxDpSh4e1K_c0kuWedBTU0" # Replace with your Bot Token
+BOT_TOKEN = "8337561320:AAE9yTh7Oog0RVoP4QL8JXiOoFE4QGj84kc" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -1798,7 +1798,7 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(8)  # 3x speed
+    semaphore = asyncio.Semaphore(40)  # 7-8x speed boost
 
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch", "validation_custom", "invalid json response",
@@ -1825,6 +1825,9 @@ async def process_mtxt_cards(event, cards, local_sites):
             current_site = random.choice(available_sites)
             sites_tried.add(current_site)
 
+            # Site number ke liye index find karo
+            site_index = local_sites.index(current_site) + 1 if current_site in local_sites else attempts
+
             async with semaphore:
                 try:
                     result = await check_card_specific_site(card, current_site, user_id)
@@ -1836,16 +1839,15 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(3 + attempts * 2)  # faster backoff
+                        await asyncio.sleep(0.4 + attempts * 0.6)
                         continue
 
-                    # BIN info
                     bin_num = card.split("|")[0]
                     if bin_num not in bin_cache:
                         bin_cache[bin_num] = await get_bin_info(bin_num)
                     brand, bin_type, level, bank, country, flag = bin_cache[bin_num]
 
-                    elapsed_time = round(random.uniform(3.0, 6.5), 2)
+                    elapsed_time = round(random.uniform(1.0, 2.8), 2)
 
                     status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
                     is_hit = False
@@ -1864,13 +1866,15 @@ async def process_mtxt_cards(event, cards, local_sites):
                         declined += 1
 
                     if is_hit:
+                        # Site real number + short name (link nahi)
+                        short_site = current_site.replace("https://", "").replace("http://", "").split('/')[0]
                         card_msg = f"""{status_header}
 
 𝗖𝗖 ⇾ `{card}`
 𝗚𝗮𝘁𝙚𝙬𝙖𝙮 ⇾ {result.get('Gateway', 'Shopify')}
 𝗥𝗲𝙨𝙥𝙤𝙣𝙨𝗲 ⇾ {result.get('Response')}
-𝗣𝗿𝗶𝙘𝙚 ⇾ {result.get('Price')} 💸
-𝗦𝗶𝙩𝙚 ⇾ {current_site} (Attempt {attempts}/3)
+𝗣𝗿𝙞𝙘𝙚 ⇾ {result.get('Price')} 💸
+𝗦𝗶𝙩𝗲 ⇾ {site_index} ({short_site})
 
 ```𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {brand} - {bin_type} - {level}
 𝗕𝗮𝙣𝙠: {bank}
@@ -1909,7 +1913,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
-                    if checked % 4 == 0 or checked == total:                
+                    if checked % 3 == 0 or checked == total:                
                         try:
                             await status_msg.edit(status_text, buttons=buttons)
                         except:
@@ -1918,7 +1922,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                     break
 
                 except (FloodWait, FloodWaitError) as e:
-                    wait = (getattr(e, 'value', getattr(e, 'seconds', 30))) + random.randint(3, 8)
+                    wait = (getattr(e, 'value', getattr(e, 'seconds', 30))) + random.randint(1, 4)
                     print(f"[MTXT] Flood wait {wait}s")
                     await asyncio.sleep(wait)
                     checked -= 1
@@ -1926,7 +1930,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                 except Exception as e:
                     print(f"[MTXT] Card error {card[:6]}...: {e}")
                     if attempts < max_attempts:
-                        await asyncio.sleep(3)
+                        await asyncio.sleep(0.6)
                         continue
                     checked += 1
                     declined += 1
