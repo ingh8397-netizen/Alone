@@ -3,7 +3,6 @@ from telethon.errors import FloodWaitError
 from telethon.tl.types import KeyboardButtonCallback
 from telethon import Button
 from flask import Flask
-from telethon.errors import FloodWait, FloodWaitError
 import threading
 
 import requests
