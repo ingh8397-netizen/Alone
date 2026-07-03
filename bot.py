@@ -1798,7 +1798,7 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(70)  # 7-8x speed boost
+    semaphore = asyncio.Semaphore(300)  # 7-8x speed boost
 
     RETRY_TRIGGERS = [
         "merchandise_expected_price_mismatch",
@@ -1842,7 +1842,7 @@ async def process_mtxt_cards(event, cards, local_sites):
             return
 
         attempts = 0
-        max_attempts = 20
+        max_attempts = 10
         sites_tried = set()
 
         while attempts < max_attempts:
