@@ -1922,10 +1922,10 @@ async def process_mtxt_cards(event, cards, local_sites):
                     ]
 
                     if checked % 50 == 0 or checked == total:
-                    try:
-                        await status_msg.edit(status_text, buttons=buttons)
-                    except:
-                        pass
+                        try:
+                            await status_msg.edit(status_text, buttons=buttons)
+                        except:
+                            pass
 
                     break
 
