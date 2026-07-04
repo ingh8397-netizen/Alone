@@ -1206,8 +1206,8 @@ async def add_proxy(event):
             return await event.reply("❌ Invalid proxy format!")
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
-        if len(user_proxies) >= 10:
-            return await event.reply("❌ Limit 10 reached. Use /rmpxy")
+        if len(user_proxies) >= 1000:
+            return await event.reply("❌ Limit 1000 reached. Use /rmpxy")
         for existing in user_proxies:
             if existing['proxy_url'] == proxy_data['proxy_url']:
                 return await event.reply("⚠️ Already added!")
@@ -1219,7 +1219,7 @@ async def add_proxy(event):
         user_proxies.append(proxy_data)
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        await testing_msg.edit(f"✅ Added!\nTotal: {len(user_proxies)}/10")
+        await testing_msg.edit(f"✅ Added!\nTotal: {len(user_proxies)}/1000")
     except FloodWaitError as e:
         print(f"FloodWait: {e.seconds}s")
         await asyncio.sleep(e.seconds)
@@ -1256,9 +1256,9 @@ async def set_proxy_bulk(event):
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
         
-        for idx, p_str in enumerate(proxy_lines[:30], 1):
-            if len(user_proxies) >= 10:
-                await event.reply("❌ Max 10 reached!")
+        for idx, p_str in enumerate(proxy_lines[:1000], 1):
+            if len(user_proxies) >= 1000:
+                await event.reply("❌ Max 1000 reached!")
                 break
             
             proxy_data = parse_proxy_format(p_str)
@@ -1500,7 +1500,7 @@ async def view_proxy(event):
             return await event.reply("❌ 𝙔𝙤𝙪 𝙙𝙤𝙣'𝙩 𝙝𝙖𝙫𝙚 𝙖𝙣𝙮 𝙥𝙧𝙤𝙭𝙮 𝙨𝙖𝙫𝙚𝙙!\n\n𝙐𝙨𝙚 /addpxy 𝙩𝙤 𝙖𝙙𝙙 𝙤𝙣𝙚.")
         
         # Build proxy list message
-        proxy_list = f"📡 **𝙔𝙤𝙪𝙧 𝙋𝙧𝙤𝙭𝙞𝙚𝙨** ({len(user_proxies)}/10)\n\n"
+        proxy_list = f"📡 **𝙔𝙤𝙪𝙧 𝙋𝙧𝙤𝙭𝙞𝙚𝙨** ({len(user_proxies)}/1000)\n\n"
         
         for idx, proxy_data in enumerate(user_proxies, 1):
             proxy_type = proxy_data.get('type', 'http').upper()
