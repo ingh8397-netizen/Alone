@@ -1966,7 +1966,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                     status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
                     is_hit = False
 
-                    if any(x in response_text for x in ["charged", "order placed", "order completed", "payment successful", "💎", "insufficient_funds"]):
+                            if any(x in response_text for x in ["charged", "order placed", "ORDER_PLACED", "order completed", "payment successful", "💎", "insufficient_funds"]):
                         charged += 1
                         status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
                         is_hit = True
