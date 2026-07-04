@@ -1918,9 +1918,10 @@ async def process_mtxt_cards(event, cards, local_sites):
     status_msg = await event.reply(f"```🔥 𝙈𝙏𝙓𝙏 𝘾𝙝𝙚𝙘𝙠 𝙎𝙩𝙖𝙧𝙩𝙚𝙙 🍳 {total} 𝘾𝘾𝙎```")
 
     bin_cache = {}
-    semaphore = asyncio.Semaphore(120)  # FASTER
+    semaphore = asyncio.Semaphore(80)  # FASTER
 
-    RETRY_TRIGGERS = ["merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom", "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout", "site requires login", "site not supported", "cart failed with status 503", "connection error", "failed to get session token", "payment method not available", "invalid_payment_method", "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>", "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"]
+    RETRY_TRIGGERS = ["merchandise_expected_price_mismatch", "unable to get payment token", "validation_custom", "invalid json response", "delivery_delivery_line_detail_changed", "status: 401", "site error", "no working site found", "products", "cloudflare", "bypass failed", "expecting value", "json", "401", "positive_amount_expected", "rate limit", "too many requests", "429", "403", "timeout", "site requires login", "site not supported", "cart failed with status 503", "connection error", "failed to get session token", "payment method not available", "invalid_payment_method", "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>", "no valid payment method found", "processing_error", "Cart failed with status 422", "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead", "<b>Site Error! Status: 429</b>", "proxy error: 503",
+"service unavailable",]
 
     async def check_single_card(card):
         nonlocal checked, approved, charged, declined
