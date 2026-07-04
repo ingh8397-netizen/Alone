@@ -4,6 +4,7 @@ from telethon.tl.types import KeyboardButtonCallback
 from telethon import Button
 from flask import Flask
 import threading
+from telethon import events
 
 import requests
 import random
@@ -24,7 +25,7 @@ from urllib.parse import quote
 # Config
 API_ID = 37250868
 API_HASH = "370eaf1a9ee59f21dd83ca8257efd6fd"
-BOT_TOKEN = "8504591675:AAFg-6VnwJ5iF39_77yN4EwxrpxvqzHzqHI" # Replace with your Bot Token
+BOT_TOKEN = "8337561320:AAE9yTh7Oog0RVoP4QL8JXiOoFE4QGj84kc" # Replace with your Bot Token
 ADMIN_ID = [7899583720, 8409853085,] # Replace with your Admin ID(s)
 GROUP_ID = -1003678203420 # Replace with your Group ID
 PREMIUM_FILE = "premium.json"
@@ -47,7 +48,7 @@ def home():
 def run_web():
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000))
+        port=int(os.environ.get("PORT", 20000))
     )
 
 threading.Thread(target=run_web, daemon=True).start()
@@ -323,7 +324,7 @@ async def check_card_random_site(card, sites, user_id=None):
                     if (
                         "charged" in response_lower or
                         "order placed" in response_lower or
-                        "ORDER_PLACED" in api_response or
+                        "ORDER_PAID" in api_response or
                         "Order completed" in api_response or
                         "💎" in api_response or
                         "insufficient_funds" in response_lower
@@ -432,7 +433,7 @@ async def check_card_specific_site(card, site, user_id=None):
                 if (
                     "charged" in api_response.lower()
                     or "order placed" in api_response.lower()
-                    or "ORDER_PLACED" in api_response
+                    or "ORDER_PAID" in api_response
                     or "Order completed" in api_response
                     or "💎" in api_response
                 ):
@@ -523,7 +524,7 @@ async def can_use(user_id, chat):
 
 def get_cc_limit(access_type, user_id=None):
     if user_id and user_id in ADMIN_ID:
-        return 100000  # Admin full power
+        return 200000  # Admin full power
     
     if access_type in ["premium_private", "premium_group"]:
         return 50000   # 50k for premium
@@ -1206,110 +1207,115 @@ async def add_proxy(event):
             return await event.reply("❌ Invalid proxy format!")
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
-        if len(user_proxies) >= 1000:
-            return await event.reply("❌ Limit 1000 reached. Use /rmpxy")
+        if len(user_proxies) >= 2000:
+            return await event.reply("❌ Limit 2000 reached. Use /rmpxy")
         for existing in user_proxies:
             if existing['proxy_url'] == proxy_data['proxy_url']:
                 return await event.reply("⚠️ Already added!")
-        testing_msg = await event.reply("🔄 Testing...")
+        
+        loading = await event.reply("🔄 Testing proxy...")
         is_working, result = await test_proxy(proxy_data['proxy_url'])
+        
         if not is_working:
-            await testing_msg.edit(f"❌ Dead: {result}")
+            await loading.edit(f"❌ Dead: {result}")
             return
+        
         user_proxies.append(proxy_data)
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        await testing_msg.edit(f"✅ Added!\nTotal: {len(user_proxies)}/1000")
+        await loading.edit(f"✅ Added!\nTotal: {len(user_proxies)}/2000")
+        
     except FloodWaitError as e:
-        print(f"FloodWait: {e.seconds}s")
         await asyncio.sleep(e.seconds)
-
     except Exception as e:
         print(f"Error: {e}")
+
+
 @client.on(events.NewMessage(pattern=r'(?i)^[/.]setpr?oxy$'))
 async def set_proxy_bulk(event):
     if event.is_group:
         return await event.reply("🔒 Private chat only!")
     if await is_banned_user(event.sender_id):
         return await event.reply(banned_user_message())
-    
+
     if not event.reply_to_msg_id:
         return await event.reply("Reply to proxies.txt with /setproxy")
-    
+  
     replied = await event.get_reply_message()
     if not replied.document:
         return await event.reply("Reply to .txt file!")
-    
+
     file_path = await replied.download_media()
     try:
         async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
             content = await f.read()
         os.remove(file_path)
-        
+      
         proxy_lines = [line.strip() for line in content.splitlines() if line.strip()]
         if not proxy_lines:
             return await event.reply("No proxies found.")
+      
+        loading = await event.reply("🔄 Testing proxies... (0 added | 0 dead)")
         
-        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies... (only working add honge)")
-        added = 0
-        dead_count = 0
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
         
-        for idx, p_str in enumerate(proxy_lines[:1000], 1):
-            if len(user_proxies) >= 1000:
-                await event.reply("❌ Max 1000 reached!")
-                break
-            
+        added = 0
+        dead_count = 0
+        total_tested = 0
+        max_limit = 2000
+        
+        async def test_single(p_str):
+            nonlocal added, dead_count
             proxy_data = parse_proxy_format(p_str)
             if not proxy_data:
-                await event.reply(f"❌ Invalid format (line {idx})")
-                continue
-            
+                return False
             if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies):
-                await event.reply(f"⚠️ Already exists (line {idx})")
-                continue
+                return False
             
-            testing_msg = await event.reply(f"🔄 Testing line {idx} → {proxy_data['ip']}:{proxy_data['port']}")
             is_working, result = await test_proxy(proxy_data['proxy_url'])
-            
-            if not is_working:
-                dead_count += 1
-                await testing_msg.edit(f"❌ Dead / Offline (line {idx})\n{proxy_data['ip']}:{proxy_data['port']}")
-                continue  # Dead ko add mat karo
-            
-            # Working proxy add
-            user_proxies.append(proxy_data)
-            added += 1
-            
-            proxy_type_display = proxy_data.get('type', 'http').upper()
-            auth_display = f"👤 {proxy_data.get('username', 'N/A')}" if proxy_data.get('username') else "🔓 No Auth"
-            
-            await testing_msg.edit(f"""✅ Proxy Added Successfully!
+            if is_working:
+                user_proxies.append(proxy_data)
+                added += 1
+                return True
+            dead_count += 1
+            return False
 
-🌐 External IP: {result}
-📍 Proxy: {proxy_data['ip']}:{proxy_data['port']}
-🔐 Type: {proxy_type_display}
-{auth_display}
-📊 Total Proxies: {len(user_proxies)}/10""")
+        batch_size = 50
+        for i in range(0, len(proxy_lines), batch_size):
+            if len(user_proxies) >= max_limit:
+                break
+                
+            batch = proxy_lines[i:i+batch_size]
+            tasks = [test_single(p) for p in batch]
+            await asyncio.gather(*tasks)
             
-            await asyncio.sleep(0.7)
-        
+            total_tested += len(batch)
+            
+            await loading.edit(
+                f"🔄 Testing proxies...\n"
+                f"✅ Added: {added}\n"
+                f"❌ Dead: {dead_count}\n"
+                f"📊 Progress: {total_tested}/{min(len(proxy_lines), max_limit)}"
+            )
+            await asyncio.sleep(1.1)
+
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        
+      
         await loading.edit(f"""🎉 Bulk Process Complete!
 
 ✅ Working Added: {added}
 ❌ Dead/Offline Skipped: {dead_count}
-📊 Final Total: {len(user_proxies)}/10""")
-        
-    except FloodWaitError as e:
-        print(f"FloodWait: {e.seconds}s")
-        await asyncio.sleep(e.seconds)
+📊 Final Total: {len(user_proxies)}/{max_limit}""")
 
+    except FloodWaitError as e:
+        await asyncio.sleep(e.seconds)
     except Exception as e:
         print(f"Error: {e}")
+        if 'loading' in locals():
+            await loading.edit("❌ Error occurred during processing.")
+
 
 @client.on(events.NewMessage(pattern=r'/addsitetxt'))
 async def add_sites_bulk_txt(event):
@@ -1329,32 +1335,44 @@ async def add_sites_bulk_txt(event):
         
         txt_sites = extract_urls_from_text(text)
         if not txt_sites:
-            try:
-                return await event.reply("❌ No valid urls/domains found!")
-            except FloodWaitError as e:
-                print(f"FloodWait: {e.seconds}s")
-                await asyncio.sleep(e.seconds)
-                return        
+            return await event.reply("❌ No valid urls/domains found!")
+        
+        loading = await event.reply("🔄 Adding sites... (0 added)")
+        
         data = await load_json(SITE_FILE)
         user_sites = data.get(str(event.sender_id), [])
         added = 0
-        for site in txt_sites:
-            clean_site = site.replace("https://", "").replace("http://", "").strip()
-            if clean_site not in user_sites:
-                user_sites.append(clean_site)
-                added += 1
+        
+        batch_size = 100
+        for i in range(0, len(txt_sites), batch_size):
+            batch = txt_sites[i:i + batch_size]
+            for site in batch:
+                clean_site = site.replace("https://", "").replace("http://", "").strip().lower()
+                if clean_site and clean_site not in user_sites:
+                    user_sites.append(clean_site)
+                    added += 1
+            
+            await loading.edit(f"🔄 Adding sites...\n✅ Added: {added}\n📊 Total: {len(user_sites)}")
+            await asyncio.sleep(0.8)
+
         data[str(event.sender_id)] = user_sites
         await save_json(SITE_FILE, data)
-        await event.reply(f"✅ Sites added successfully!\nAdded: {added}\nTotal sites: {len(user_sites)}")
-    except FloodWaitError as e:
-        print(f"FloodWait: {e.seconds}s")
-        await asyncio.sleep(e.seconds)
+        await loading.edit(f"""✅ Sites added successfully!
 
+Added: {added}
+Total sites: {len(user_sites)}""")
+
+    except FloodWaitError as e:
+        await asyncio.sleep(e.seconds)
     except Exception as e:
         print(f"Error: {e}")
+        if 'loading' in locals():
+            await loading.edit("❌ Error occurred while adding sites.")
+
+
 # === NEW BULK COMMAND ===
 @client.on(events.NewMessage(pattern=r'(?i)^[/.]setprxy$'))
-async def set_proxy_bulk(event):
+async def set_proxy_bulk_new(event):
     if event.is_group:
         return await event.reply("🔒 Private chat only!")
     if await is_banned_user(event.sender_id):
@@ -1377,58 +1395,62 @@ async def set_proxy_bulk(event):
         if not proxy_lines:
             return await event.reply("No proxies found.")
         
-        loading = await event.reply(f"🔄 Testing {len(proxy_lines)} proxies...")
+        loading = await event.reply("🔄 Testing proxies... (0 added | 0 dead)")
+        
         added = 0
+        dead_count = 0
+        total_tested = 0
         proxies = await load_json(PROXY_FILE)
         user_proxies = proxies.get(str(event.sender_id), [])
+        max_limit = 2000
         
-        for idx, p_str in enumerate(proxy_lines[:25], 1):
-            if len(user_proxies) >= 10:
-                await event.reply("❌ Max 10 proxies reached!")
-                break
-            
+        async def test_single(p_str):
+            nonlocal added, dead_count
             proxy_data = parse_proxy_format(p_str)
             if not proxy_data:
-                await event.reply(f"❌ Invalid (line {idx}): {p_str}")
-                continue
-            
+                return False
             if any(ex['proxy_url'] == proxy_data['proxy_url'] for ex in user_proxies):
-                await event.reply(f"⚠️ Already exists (line {idx})")
-                continue
-            
-            testing_msg = await event.reply(f"🔄 Testing line {idx}...")
+                return False
             is_working, result = await test_proxy(proxy_data['proxy_url'])
-            
-            if not is_working:
-                await testing_msg.edit(f"❌ Dead (line {idx})\n{result}")
-                continue
-            
-            user_proxies.append(proxy_data)
-            added += 1
-            
-            proxy_type_display = proxy_data.get('type', 'http').upper()
-            auth_display = f"👤 {proxy_data.get('username', 'N/A')}" if proxy_data.get('username') else "🔓 No Auth"
-            
-            await testing_msg.edit(f"""✅ Proxy Added Successfully!
+            if is_working:
+                user_proxies.append(proxy_data)
+                added += 1
+                return True
+            dead_count += 1
+            return False
 
-🌐 External IP: {result}
-📍 Proxy: {proxy_data['ip']}:{proxy_data['port']}
-🔐 Type: {proxy_type_display}
-{auth_display}
-📊 Total Proxies: {len(user_proxies)}/10""")
+        batch_size = 50
+        for i in range(0, len(proxy_lines), batch_size):
+            if len(user_proxies) >= max_limit:
+                break
+            batch = proxy_lines[i:i+batch_size]
+            tasks = [test_single(p) for p in batch]
+            await asyncio.gather(*tasks)
+            total_tested += len(batch)
             
-            await asyncio.sleep(0.8)
-        
+            await loading.edit(
+                f"🔄 Testing proxies...\n"
+                f"✅ Added: {added}\n"
+                f"❌ Dead: {dead_count}\n"
+                f"📊 Progress: {total_tested}/{min(len(proxy_lines), max_limit)}"
+            )
+            await asyncio.sleep(1.1)
+
         proxies[str(event.sender_id)] = user_proxies
         await save_json(PROXY_FILE, proxies)
-        await loading.edit(f"🎉 Bulk Done!\nSuccessfully Added: {added}\nTotal: {len(user_proxies)}/10")
+        
+        await loading.edit(f"""🎉 Bulk Process Complete!
+
+✅ Working Added: {added}
+❌ Dead Skipped: {dead_count}
+📊 Final Total: {len(user_proxies)}/{max_limit}""")
         
     except FloodWaitError as e:
-        print(f"FloodWait: {e.seconds}s")
         await asyncio.sleep(e.seconds)
-
     except Exception as e:
         print(f"Error: {e}")
+        if 'loading' in locals():
+            await loading.edit("❌ Error occurred.")
 
 @client.on(events.NewMessage(pattern='/rmpxy'))
 async def remove_proxy(event):
@@ -1500,7 +1522,7 @@ async def view_proxy(event):
             return await event.reply("❌ 𝙔𝙤𝙪 𝙙𝙤𝙣'𝙩 𝙝𝙖𝙫𝙚 𝙖𝙣𝙮 𝙥𝙧𝙤𝙭𝙮 𝙨𝙖𝙫𝙚𝙙!\n\n𝙐𝙨𝙚 /addpxy 𝙩𝙤 𝙖𝙙𝙙 𝙤𝙣𝙚.")
         
         # Build proxy list message
-        proxy_list = f"📡 **𝙔𝙤𝙪𝙧 𝙋𝙧𝙤𝙭𝙞𝙚𝙨** ({len(user_proxies)}/1000)\n\n"
+        proxy_list = f"📡 **𝙔𝙤𝙪𝙧 𝙋𝙧𝙤𝙭𝙞𝙚𝙨** ({len(user_proxies)}/2000)\n\n"
         
         for idx, proxy_data in enumerate(user_proxies, 1):
             proxy_type = proxy_data.get('type', 'http').upper()
@@ -1640,7 +1662,7 @@ async def process_sh_card(event, access_type):
         "failed to get session token", "payment method not available", "invalid_payment_method",
         "<b>Site Error! Status: 402</b>", "delivery_address", "<b>not shopify!</b>",
         "no valid payment method found", "processing_error", "Cart failed with status 422", 
-        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "site dead"
+        "payments_payment_flexibility_terms_id_mismatch", "SITE DEAD", "GENERIC_ERROR", "is_from_rle" "site dead"
     ]
 
     attempts = 0
@@ -1763,7 +1785,7 @@ async def process_msh_cards(event, cards, sites):
         is_charged = False
         status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
 
-        if any(x in response_text for x in ["charged", "order placed", "ORDER_PLACED", "order completed", "payment successful", "💎", "insufficient_funds"]):
+        if any(x in response_text for x in ["charged", "order placed", "ORDER_PAID", "order completed", "payment successful", "💎", "insufficient_funds"]):
             status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
             is_charged = True
             await save_approved_card(card, "Charged", res.get('Response'), res.get('Gateway'), res.get('Price'))
@@ -1972,7 +1994,7 @@ async def process_mtxt_cards(event, cards, local_sites):
                     status_header = "~~ 𝘿𝙀𝘾𝙇𝙄𝙉𝙀𝘿 ~~ ❌"
                     is_hit = False
 
-                    if any(x in response_text for x in ["charged", "order placed", "ORDER_PLACED", "order completed", "payment successful", "💎", "insufficient_funds"]):
+                    if any(x in response_text for x in ["charged", "order paid", "ORDER_PAID", "order completed", "payment successful", "💎", "insufficient_funds"]):
                         charged += 1
                         status_header = "𝘾𝙃𝘼𝙍𝙂𝙀𝘿 💎"
                         is_hit = True
